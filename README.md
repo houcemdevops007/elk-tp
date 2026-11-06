@@ -96,7 +96,9 @@ tp-elk/                           (racine de ce dépôt)
     ├── generateur.tpl.html        gabarit commun aux 5 generateurs
     ├── build-generateurs.py       construit les generateur.html
     ├── render-exemple.py          rend les fichiers avec des valeurs concretes
-    └── mermaid-to-svg.cjs         pre-rend les diagrammes Mermaid en SVG
+    ├── mermaid-to-svg.cjs         pre-rend les diagrammes Mermaid en SVG
+    └── ajouter-custom-logs.py     ADMIN : replique l'integration Custom Logs
+                                   sur les 20 politiques efi-studentNN-apache
 
 Publication (dans le depot principal) :
     scripts/tutorials/md_to_tiptap.py              Markdown -> TipTap
@@ -220,7 +222,60 @@ Le Markdown reste la source : le SVG est déposé à côté (`<page>.mermaid-<n>
 2. Laisser **« 📊 Grille d'évaluation »** visible : une grille connue à l'avance oriente le travail vers ce qui compte.
 3. Vérifier qu'un générateur s'affiche bien et réagit au clic sur **Générer** (navigateur d'entreprise : certains bloquent les cadres intégrés — le repli est alors de distribuer le fichier `generateur.html`, qui s'ouvre seul dans un onglet).
 
-## 5. Ce que le formateur doit préparer
+## 5. Outil d'administration : ajouter Custom Logs aux 20 politiques
+
+Les politiques `efi-studentNN-apache` de la plateforme ne portent que deux intégrations
+(Apache HTTP Server et System). Il en faut une **troisième**, sur le journal JSON — c'est
+elle qui apporte la durée des requêtes. `tools/ajouter-custom-logs.py` la réplique sur les
+vingt politiques.
+
+Le script ne **fabrique** pas la configuration, il la **clone** : vous créez l'intégration
+une fois à la main, proprement, sur une politique de référence, et il la réplique en
+changeant le nom, la politique cible et l'espace de nom. On évite ainsi de dépendre d'un
+format de corps de requête qui change d'une version de Fleet à l'autre.
+
+**Étape 1 — créer le modèle à la main**, dans Kibana → Fleet → `efi-student01-apache` →
+Ajouter une intégration → **Custom Logs** :
+
+| Paramètre | Valeur |
+|---|---|
+| Nom | `custom-logs-efi-student01-apache` |
+| Chemin | `/var/log/apache2/access_json.log` |
+| Dataset name | `shopflow_apache.access_json` |
+| Espace de nom | `student01` |
+| Sortie | `efi-elasticsearch` |
+
+**Étape 2 — répliquer.** Le script simule par défaut : rien n'est écrit sans `--appliquer`.
+
+```bash
+export KIBANA_API_KEY='<cle-api-avec-droits-fleet>'
+python3 tools/ajouter-custom-logs.py --simuler
+```
+
+```bash
+python3 tools/ajouter-custom-logs.py --appliquer
+```
+
+| Garde-fou | Comportement |
+|---|---|
+| Simulation par défaut | Affiche ce qui serait créé, n'écrit rien |
+| Idempotence | Une politique qui a déjà l'intégration est ignorée, pas dupliquée |
+| Politique de référence | Jamais modifiée |
+| Politique absente | Signalée, le script continue |
+| Champs en lecture seule | `id`, `revision`, `created_at`… retirés avant envoi, sinon Fleet refuse |
+| Espace de nom | Ajusté au candidat **et** dans chaque flux de l'intégration |
+
+Options : `--kibana`, `--cacert` (CA interne), `--reference`, `--motif`, `--de`/`--a`,
+`--utilisateur`/`--mot-de-passe` si vous n'avez pas de clé d'API, `--insecure` en lab fermé.
+
+Après application, les agents déjà enrôlés reçoivent la nouvelle révision en quelques
+secondes, sans réinstallation. Vérification :
+
+```bash
+curl -s --cacert /etc/efi/pki/ca.crt -H "Authorization: ApiKey $ES_API_KEY" "https://172.16.3.50:9200/logs-shopflow_apache.access_json-student01/_count?pretty"
+```
+
+## 6. Ce que le formateur doit préparer
 
 | Élément | Détail |
 |---|---|
@@ -237,7 +292,7 @@ Le Markdown reste la source : le SVG est déposé à côté (`<page>.mermaid-<n>
 | Licence | Niveau relevé et communiqué : il conditionne les SLO natifs et plusieurs connecteurs d'alerte |
 | Rétention ILM | Vérifiée : les SLO du projet portent sur 7 jours |
 
-## 6. Points marqués à vérifier
+## 7. Points marqués à vérifier
 
 Le support signale par un commentaire `<!-- À VÉRIFIER -->` chaque point qui dépend de la version ou de la licence réellement installées, plutôt que d'affirmer une valeur. Les principaux :
 
