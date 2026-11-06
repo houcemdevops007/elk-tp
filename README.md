@@ -274,8 +274,23 @@ fermé », et on ne peut pas le deviner.
 Si le port direct n'est pas routé depuis votre poste, passez par le reverse proxy en
 incluant le chemin de base : `--kibana https://elk.efi-academy.com/tp`.
 
-**Étape 3 — obtenir la clé d'API Kibana.** Dans Kibana, connecté avec un compte
-**administrateur** : **Stack Management → Security → API keys → Create API key**.
+**Étape 3 — obtenir la clé d'API.** Deux voies. La plus rapide, en une commande depuis le
+poste d'administration — la réponse contient le champ **`encoded`**, qui est exactement la
+valeur attendue :
+
+```bash
+curl -s --cacert ~/efi-elk-platform/pki/ca.crt -u elastic -X POST "https://172.16.3.50:9200/_security/api_key" -H 'Content-Type: application/json' -d '{"name":"fleet-custom-logs","expiration":"7d"}' | python3 -m json.tool
+```
+
+Sans `role_descriptors`, la clé hérite des droits du compte qui la crée : c'est ce qu'on
+veut ici, et cela évite d'écrire un descripteur de rôle.
+
+```bash
+export KIBANA_API_KEY='<valeur du champ encoded>'
+```
+
+L'autre voie passe par l'interface, avec un compte **administrateur** :
+**Stack Management → Security → API keys → Create API key**.
 
 | Champ | Valeur |
 |---|---|
@@ -292,9 +307,20 @@ Vérifiez-la avant de lancer le script :
 curl -s --cacert ~/efi-elk-platform/pki/ca.crt -H "Authorization: ApiKey $KIBANA_API_KEY" -H 'kbn-xsrf: true' "https://172.16.3.53:5601/api/fleet/agent_policies?perPage=1"
 ```
 
-Du JSON contenant `items` : c'est bon. `401` : ce n'est pas la valeur *Encoded*. `403` :
-le compte n'a pas les droits Fleet. Sans clé d'API, le script accepte
-`--utilisateur` et `--mot-de-passe`.
+Du JSON contenant `items` : c'est bon.
+
+| Réponse | Cause | Remède |
+|---|---|---|
+| `401 Unauthorized` | La variable est **vide** dans ce shell (cause la plus fréquente), ou ce n'est pas la valeur `encoded` | `echo ${#KIBANA_API_KEY}` : une clé encodée fait plusieurs dizaines de caractères. Zéro = variable non définie |
+| `401` avec une variable bien remplie | L'identifiant ou la clé brute a été copié à la place de `encoded` | Reprendre le champ `encoded` de la réponse |
+| `403 Forbidden` | Authentifié, mais sans droits Fleet | Recréer la clé depuis un compte administrateur |
+
+**Le plus simple reste de se passer de clé** : le script accepte l'authentification par
+compte, et demande le mot de passe sans l'afficher.
+
+```bash
+python3 tools/ajouter-custom-logs.py --cacert ~/efi-elk-platform/pki/ca.crt --utilisateur elastic --simuler
+```
 
 **Étape 4 — répliquer.** Le script simule par défaut : rien n'est écrit sans `--appliquer`.
 
