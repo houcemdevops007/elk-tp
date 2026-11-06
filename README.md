@@ -132,6 +132,26 @@ python3 tools/build-generateurs.py 03-kubernetes
 
 Les valeurs fixes de la plateforme (IP, ports, version **9.5.5**, nom du cluster) sont centralisées dans `tools/plateforme.json` : **un seul endroit à modifier** si la plateforme change.
 
+### Rendre les fichiers en ligne de commande
+
+Le générateur HTML fait la substitution dans le navigateur. Sur une VM, en terminal,
+`tools/rendre.py` fait la même chose à partir de la même source de vérité :
+
+```bash
+python3 tools/rendre.py 01-apache --liste
+```
+
+```bash
+python3 tools/rendre.py 01-apache --NUM 20 --STUDENT_HOST vm-student20 --STUDENT_IP 172.16.20.20 --sortie ~/rendu-student20
+```
+
+Il valide les formats déclarés, applique les valeurs dérivées, protège en 600 tout fichier
+contenant un secret, rend les scripts exécutables, affiche la destination de chaque fichier
+et **échoue** s'il reste un marqueur non résolu.
+
+> **Attention** — Les fichiers de ce dépôt sont des **modèles**. Copiés tels quels sur une
+> VM, ils échouent : Apache répond `Cannot access directory '/etc/apache2/{{APACHE_LOG_DIR}}/'`.
+
 ### Vérifier avant publication
 
 Les fichiers du dépôt contiennent des placeholders : ils ne sont donc pas directement validables. Le script `render-exemple.py` applique la même substitution que le générateur, avec des valeurs d'exemple, et écrit le résultat dans `.rendu/`.

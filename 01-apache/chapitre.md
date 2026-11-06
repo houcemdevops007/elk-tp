@@ -69,6 +69,19 @@ printf 'body{font-family:sans-serif}\n' \
 
 ### 1.3 Les trois fichiers de configuration
 
+> **⚠️ Piège fréquent** — Les fichiers du dépôt sont des **modèles** : ils contiennent des
+> marqueurs `{{MAJUSCULES}}` à la place de vos valeurs. Copiés tels quels sur la VM, Apache
+> refuse de démarrer avec `Cannot access directory '/etc/apache2/{{APACHE_LOG_DIR}}/'`.
+> Passez **toujours** par le générateur, ou par son équivalent en ligne de commande :
+>
+> ```bash
+> python3 tools/rendre.py 01-apache --NUM 20 --STUDENT_HOST vm-student20 \
+>     --STUDENT_IP 172.16.20.20 --sortie ~/rendu
+> ```
+>
+> `python3 tools/rendre.py 01-apache --liste` affiche les champs attendus. Le script
+> refuse de produire un fichier qui contiendrait encore un marqueur.
+
 Le générateur du chapitre produit, avec vos valeurs :
 
 | Fichier | Destination | Rôle |
