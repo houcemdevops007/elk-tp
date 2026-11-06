@@ -98,7 +98,6 @@ tp-elk/                           (racine de ce dépôt)
     ├── render-exemple.py          rend les fichiers avec des valeurs concretes
     ├── mermaid-to-svg.cjs         pre-rend les diagrammes Mermaid en SVG
     ├── verifier-acces-kibana.sh   ADMIN : diagnostique l'acces a Kibana
-    ├── verifier-sante-cluster.sh  ADMIN : pourquoi une recherche expire
     └── ajouter-custom-logs.py     ADMIN : replique l'integration Custom Logs
                                    sur les 20 politiques efi-studentNN-apache
 

@@ -90,6 +90,49 @@ for ms, desc in sorted(lentes, reverse=True)[:5]:
     print(f"   {ms/1000:7.1f} s  {desc}")
 '
 echo
+echo "── 7. Kibana : quel composant est dégradé ? ──"
+#  Un « Timed out » dans Discover ou « Initialisation de Fleet impossible »
+#  vient de KIBANA, pas d'Elasticsearch, dès lors que le cluster est vert.
+#  /api/status nomme précisément le plugin en cause.
+KBN="${KIBANA_URL:-https://172.16.3.53:5601}"
+curl -sS --max-time 25 "${CACERT[@]}" "${AUTH[@]}" "$KBN/api/status" | python3 -c '
+import json, sys
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    print("   [ECHEC] Kibana ne repond pas, ou authentification refusee")
+    raise SystemExit
+st = d.get("status", {}) or {}
+globale = (st.get("overall") or {}).get("level", "?")
+print("   etat global                : %s" % globale)
+degrade = False
+for section in ("core", "plugins"):
+    for nom, v in (st.get(section) or {}).items():
+        niveau = (v or {}).get("level")
+        if niveau and niveau != "available":
+            degrade = True
+            resume = str((v or {}).get("summary", ""))[:110]
+            print("   [!] %s/%-22s %s - %s" % (section, nom, niveau, resume))
+if not degrade:
+    print("   tous les composants Kibana sont disponibles")
+'
+
+echo
+echo "── 8. Le registre d'intégrations est-il joignable ? ──"
+#  Fleet contacte epr.elastic.co au démarrage pour le catalogue. Sur un réseau
+#  fermé sans configuration hors-ligne, cet appel attend puis expire : c'est
+#  une cause classique de « Initialisation de Fleet impossible ».
+if curl -sS -I --max-time 8 https://epr.elastic.co >/dev/null 2>&1; then
+  echo "   [OK] epr.elastic.co joignable depuis cette machine"
+  echo "        (à retester DEPUIS elk-kibana0 : c'est lui qui l'appelle)"
+else
+  echo "   [!] epr.elastic.co INJOIGNABLE depuis cette machine."
+  echo "       Si c'est aussi le cas depuis elk-kibana0, Fleet attend ce registre"
+  echo "       au démarrage puis expire. Remèdes : autoriser la sortie, ou"
+  echo "       déclarer le mode hors-ligne dans kibana.yml"
+  echo "       (xpack.fleet.isAirGapped / registryUrl vers un miroir)."
+fi
+echo
 echo "── Lecture ──"
 cat <<'FIN'
    statut ROUGE ou shards non assignés -> c'est la cause : la recherche
@@ -99,4 +142,12 @@ cat <<'FIN'
    cluster VERT, disques sains, index volumineux -> c'est la REQUÊTE qui
        est trop large : réduisez la fenêtre (30 jours -> 24 heures) et
        ciblez un motif d'index précis plutôt que metrics-* ou logs-*.
+   cluster VERT mais Kibana dégradé (étape 7) -> le problème est DANS
+       Kibana : mémoire du processus, ou plugin en échec. Sur elk-kibana0 :
+         sudo systemctl status kibana
+         sudo journalctl -u kibana -n 100 --no-pager | grep -iE "error|timeout|fatal|heap"
+         free -h
+   registre injoignable (étape 8) -> Fleet attend epr.elastic.co au
+       démarrage. C'est la cause la plus fréquente de « Initialisation de
+       Fleet impossible » sur un réseau fermé.
 FIN
