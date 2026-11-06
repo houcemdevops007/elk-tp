@@ -281,6 +281,11 @@
       "path": "PUT _ingest/pipeline/logs-shopflow_tomcat.catalina@custom"
     },
     {
+      "from": "configs/pipeline-tomcat-simulate.a-coller.json",
+      "name": "pipeline-tomcat-simulate.a-coller.json",
+      "path": "Dev Tools -> Console : 2 requêtes de test, à coller"
+    },
+    {
       "from": "configs/pipeline-tomcat-simulate.json",
       "name": "pipeline-tomcat-simulate.json",
       "path": "POST .../_simulate — contrôle d'unité obligatoire"

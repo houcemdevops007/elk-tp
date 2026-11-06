@@ -206,6 +206,11 @@
       "path": "Kibana -> Dev Tools -> PUT _ingest/pipeline/logs-shopflow_apache.access_json@custom"
     },
     {
+      "from": "configs/pipeline-simulate.a-coller.json",
+      "name": "pipeline-simulate.a-coller.json",
+      "path": "Dev Tools -> Console : test du pipeline, à coller d'un bloc"
+    },
+    {
       "from": "configs/pipeline-simulate.json",
       "name": "pipeline-simulate.json",
       "path": "Kibana -> Dev Tools -> POST .../_simulate"

@@ -1,0 +1,20 @@
+POST _ingest/pipeline/logs-shopflow_apache.access_json@custom/_simulate
+{
+  "docs": [
+    {
+      "_source": {
+        "message": "{\"@timestamp\":\"2026-11-06T14:13:02.455+0100\",\"source.address\":\"203.0.113.45\",\"http.request.method\":\"GET\",\"url.original\":\"/api/cart\",\"url.path\":\"/api/cart\",\"http.version\":\"HTTP/1.1\",\"http.response.status_code\":200,\"http.response.body.bytes\":184320,\"http.request.referrer\":\"-\",\"user_agent.original\":\"Mozilla/5.0 (X11; Linux x86_64) Chrome/129.0\",\"server.port\":80,\"shopflow.vhost\":\"shopflow.efi-academy.local\",\"shopflow.student\":\"student01\",\"shopflow.duration_us\":4102311,\"shopflow.conn_status\":\"+\",\"shopflow.request_id\":\"abc123\"}"
+      }
+    },
+    {
+      "_source": {
+        "message": "{\"@timestamp\":\"2026-11-06T14:05:33.112+0100\",\"source.address\":\"198.51.100.7\",\"http.request.method\":\"POST\",\"url.original\":\"/api/checkout\",\"url.path\":\"/api/checkout\",\"http.version\":\"HTTP/1.1\",\"http.response.status_code\":500,\"http.response.body.bytes\":1044,\"http.request.referrer\":\"-\",\"user_agent.original\":\"curl/8.5.0\",\"server.port\":80,\"shopflow.vhost\":\"shopflow.efi-academy.local\",\"shopflow.student\":\"student01\",\"shopflow.duration_us\":892410,\"shopflow.conn_status\":\"+\",\"shopflow.request_id\":\"def456\"}"
+      }
+    },
+    {
+      "_source": {
+        "message": "ceci n'est pas du JSON : doit produire le tag json_parse_failed"
+      }
+    }
+  ]
+}
