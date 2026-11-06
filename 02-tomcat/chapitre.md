@@ -274,7 +274,7 @@ Deux stratégies de motif existent : reconnaître le début d'un événement (un
 
 ### 4.4 Les deux pipelines
 
-Créez-les dans **Dev Tools → Console** avant d'activer la collecte :
+Créez-les dans **Dev Tools → Console** (menu ☰ → Management → Dev Tools) avant d'activer la collecte. Comme au chapitre 1, ne collez pas les clés de documentation `_requete`, `_but` et `_le_piege` : Elasticsearch les refuse.
 
 ```text
 PUT  _ingest/pipeline/logs-shopflow_tomcat.access@custom      <- pipeline-tomcat-access.json

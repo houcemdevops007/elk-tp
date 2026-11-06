@@ -284,11 +284,17 @@ Un compte supérieur à zéro signifie que la troisième intégration fonctionne
 
 ### 3.4 Créer le pipeline `@custom` — avant la première donnée
 
-Dans **Kibana → Dev Tools → Console**, collez le contenu de `pipeline-access-json.json` après la ligne :
+**Où est la Console** : menu ☰ en haut à gauche → tout en bas, section **Management** → **Dev Tools**. Plus rapide : tapez `Dev Tools` dans la barre de recherche du haut. En accès direct : `.../app/dev_tools#/console`. On y colle le verbe, le chemin et le corps, puis on exécute avec ▶ ou `Ctrl + Entrée`.
+
+Collez le contenu de `pipeline-access-json.json` après la ligne :
 
 ```text
 PUT _ingest/pipeline/logs-shopflow_apache.access_json@custom
 ```
+
+> **⚠️ Piège fréquent** — Le fichier fourni commence par deux clés de documentation, `_source` et `_requete`, qui rappellent où le coller. Elasticsearch les **refuse** : ne collez que `description`, `processors` et `on_failure`. Le message d'erreur est explicite (`unknown field`), mais on perd deux minutes à le lire.
+
+Ce pipeline est **unique pour les vingt candidats** : son nom ne dépend que du dataset, pas de l'espace de nom. On le crée une fois, il sert à tout le monde.
 
 Ce que fait chaque processeur :
 
