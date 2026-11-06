@@ -9,21 +9,46 @@
         "add_to_root": true,
         "add_to_root_conflict_strategy": "merge",
         "on_failure": [
-          { "append": { "field": "tags", "value": ["json_parse_failed"] } },
-          { "set": { "field": "error.message", "value": "message non parsable en JSON" } }
+          {
+            "append": {
+              "field": "tags",
+              "value": [
+                "json_parse_failed"
+              ]
+            }
+          },
+          {
+            "set": {
+              "field": "error.message",
+              "value": "message non parsable en JSON"
+            }
+          }
         ]
+      }
+    },
+    {
+      "dot_expander": {
+        "description": "éclate « a.b.c » en objets imbriqués : sans cela, les processeurs suivants, qui adressent ctx.a.b.c, ne trouvent rien — et échouent en silence",
+        "field": "*",
+        "override": true
       }
     },
     {
       "date": {
         "field": "@timestamp",
-        "formats": ["ISO8601"],
+        "formats": [
+          "ISO8601"
+        ],
         "target_field": "@timestamp",
         "ignore_failure": true
       }
     },
     {
-      "convert": { "field": "shopflow.duration_us", "type": "long", "ignore_missing": true }
+      "convert": {
+        "field": "shopflow.duration_us",
+        "type": "long",
+        "ignore_missing": true
+      }
     },
     {
       "script": {
@@ -41,32 +66,77 @@
         "ignore_failure": true
       }
     },
-    { "set": { "field": "event.module", "value": "apache", "override": false } },
-    { "set": { "field": "event.dataset", "value": "shopflow_apache.access_json", "override": false } },
-    { "set": { "field": "service.name", "value": "shopflow-web", "override": false } },
-    { "set": { "field": "service.environment", "value": "{{{data_stream.namespace}}}", "override": false } },
-    { "user_agent": { "field": "user_agent.original", "ignore_missing": true } },
     {
-      "convert": {
-        "field": "source.address", "target_field": "source.ip",
-        "type": "ip", "ignore_failure": true
+      "set": {
+        "field": "event.module",
+        "value": "apache",
+        "override": false
       }
     },
     {
       "set": {
-        "field": "event.outcome", "value": "failure",
+        "field": "event.dataset",
+        "value": "shopflow_apache.access_json",
+        "override": false
+      }
+    },
+    {
+      "set": {
+        "field": "service.name",
+        "value": "shopflow-web",
+        "override": false
+      }
+    },
+    {
+      "set": {
+        "field": "service.environment",
+        "value": "{{{data_stream.namespace}}}",
+        "override": false,
+        "if": "ctx.data_stream?.namespace != null"
+      }
+    },
+    {
+      "user_agent": {
+        "field": "user_agent.original",
+        "ignore_missing": true
+      }
+    },
+    {
+      "convert": {
+        "field": "source.address",
+        "target_field": "source.ip",
+        "type": "ip",
+        "ignore_failure": true
+      }
+    },
+    {
+      "set": {
+        "field": "event.outcome",
+        "value": "failure",
         "if": "ctx.http?.response?.status_code != null && ctx.http.response.status_code >= 500"
       }
     },
     {
       "set": {
-        "field": "event.outcome", "value": "success", "override": false,
+        "field": "event.outcome",
+        "value": "success",
+        "override": false,
         "if": "ctx.http?.response?.status_code != null && ctx.http.response.status_code < 400"
       }
     },
-    { "remove": { "field": "message", "ignore_missing": true } }
+    {
+      "remove": {
+        "field": "message",
+        "ignore_missing": true
+      }
+    }
   ],
   "on_failure": [
-    { "set": { "field": "error.message", "value": "{{ _ingest.on_failure_message }}" } }
+    {
+      "set": {
+        "field": "error.message",
+        "value": "{{ _ingest.on_failure_message }}"
+      }
+    }
   ]
 }

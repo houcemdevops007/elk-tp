@@ -297,6 +297,7 @@ Ce que fait chaque processeur :
 | Processeur | Rôle | Pourquoi c'est nécessaire |
 |---|---|---|
 | `json` | Parse `message` et remonte les clés à la racine | La ligne lue par l'agent est une chaîne : sans ce processeur, rien n'est requêtable |
+| `dot_expander` | Éclate `a.b.c` en objets imbriqués | **Indispensable** : voir l'encadré ci-dessous |
 | `date` | Normalise l'horodatage ISO 8601 | Garantit que `@timestamp` est de type `date`, pas une chaîne |
 | `convert` | Force `shopflow.duration_us` en entier | Un champ arrivé en chaîne interdit tout percentile |
 | `script` (durée) | Multiplie par 1 000 | **ECS impose les nanosecondes** pour `event.duration` |
@@ -307,6 +308,8 @@ Ce que fait chaque processeur :
 | `set` (`event.outcome`) | `failure` si ≥ 500, `success` si < 400 | Champ directement réutilisable comme SLI (chapitre 5) |
 | `remove` | Supprime `message` devenu redondant | Réduit le volume stocké d'environ un tiers |
 | `on_failure` | Capture l'erreur dans `error.message` | Sans cela, un document en échec est rejeté **silencieusement** |
+
+> **⚠️ Piège fréquent — celui qui coûte le plus cher ici** — Le processeur `json` avec `add_to_root` pose les clés **telles quelles** : votre journal contient `"http.response.status_code"`, et Elasticsearch crée un champ dont le **nom contient des points**, pas un objet imbriqué. Or tous les processeurs suivants adressent `ctx.http.response.status_code`, c'est-à-dire un chemin imbriqué : ils ne trouvent rien. Et comme ils portent `ignore_failure` ou une condition, **ils échouent en silence** — pas d'erreur, pas de tag, juste des champs manquants. Le `dot_expander` rétablit la structure. Sans lui, vous obtenez un document qui a l'air correct mais sans `event.duration`, sans `shopflow.status_class`, sans `event.outcome` et sans `source.ip`. C'est exactement ce que le test `_simulate` de l'étape suivante doit vous faire voir.
 
 > **À retenir** — `event.outcome` traite ici les 4xx comme **ni succès ni échec**, volontairement : une erreur 404 provoquée par un scan externe n'est pas une défaillance de votre service. Cette décision a des conséquences directes sur le calcul du SLI au chapitre 5. Un SRE assume ce genre de choix et le documente.
 

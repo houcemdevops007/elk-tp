@@ -10,8 +10,20 @@
           "%{IPORHOST:source.address} %{NOTSPACE:_tmp.ident} %{NOTSPACE:_tmp.user} \\[%{HTTPDATE:_tmp.ts}\\] \"%{WORD:http.request.method} %{NOTSPACE:url.original} HTTP/%{NUMBER:http.version}\" %{NUMBER:http.response.status_code:long} (?:-|%{NUMBER:http.response.body.bytes:long}) %{NUMBER:_tmp.duration_ms:long} %{NUMBER:_tmp.ttfb_ms:long} %{NOTSPACE:process.thread.name} \"%{DATA:shopflow.request_id}\""
         ],
         "on_failure": [
-          { "append": { "field": "tags", "value": ["grok_tomcat_access_failed"] } },
-          { "set": { "field": "error.message", "value": "ligne d'accès Tomcat non reconnue : vérifiez le pattern de l'AccessLogValve" } }
+          {
+            "append": {
+              "field": "tags",
+              "value": [
+                "grok_tomcat_access_failed"
+              ]
+            }
+          },
+          {
+            "set": {
+              "field": "error.message",
+              "value": "ligne d'accès Tomcat non reconnue : vérifiez le pattern de l'AccessLogValve"
+            }
+          }
         ]
       }
     },
@@ -19,7 +31,9 @@
       "date": {
         "field": "_tmp.ts",
         "target_field": "@timestamp",
-        "formats": ["dd/MMM/yyyy:HH:mm:ss Z"],
+        "formats": [
+          "dd/MMM/yyyy:HH:mm:ss Z"
+        ],
         "locale": "en",
         "ignore_failure": true
       }
@@ -48,25 +62,66 @@
         "ignore_failure": true
       }
     },
-    { "set": { "field": "url.path", "value": "{{{url.original}}}", "override": false } },
-    { "set": { "field": "service.name", "value": "shopflow-api", "override": false } },
-    { "set": { "field": "service.environment", "value": "{{{data_stream.namespace}}}", "override": false } },
-    { "set": { "field": "event.module", "value": "tomcat", "override": false } },
     {
       "set": {
-        "field": "event.outcome", "value": "failure",
+        "field": "url.path",
+        "value": "{{{url.original}}}",
+        "override": false
+      }
+    },
+    {
+      "set": {
+        "field": "service.name",
+        "value": "shopflow-api",
+        "override": false
+      }
+    },
+    {
+      "set": {
+        "field": "service.environment",
+        "value": "{{{data_stream.namespace}}}",
+        "override": false,
+        "if": "ctx.data_stream?.namespace != null"
+      }
+    },
+    {
+      "set": {
+        "field": "event.module",
+        "value": "tomcat",
+        "override": false
+      }
+    },
+    {
+      "set": {
+        "field": "event.outcome",
+        "value": "failure",
         "if": "ctx.http?.response?.status_code != null && ctx.http.response.status_code >= 500"
       }
     },
     {
       "set": {
-        "field": "event.outcome", "value": "success", "override": false,
+        "field": "event.outcome",
+        "value": "success",
+        "override": false,
         "if": "ctx.http?.response?.status_code != null && ctx.http.response.status_code < 400"
       }
     },
-    { "remove": { "field": ["_tmp", "message"], "ignore_missing": true } }
+    {
+      "remove": {
+        "field": [
+          "_tmp",
+          "message"
+        ],
+        "ignore_missing": true
+      }
+    }
   ],
   "on_failure": [
-    { "set": { "field": "error.message", "value": "{{ _ingest.on_failure_message }}" } }
+    {
+      "set": {
+        "field": "error.message",
+        "value": "{{ _ingest.on_failure_message }}"
+      }
+    }
   ]
 }

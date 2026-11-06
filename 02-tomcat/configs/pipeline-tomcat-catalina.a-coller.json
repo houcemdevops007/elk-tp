@@ -74,7 +74,8 @@ PUT _ingest/pipeline/logs-shopflow_tomcat.catalina@custom
       "set": {
         "field": "service.environment",
         "value": "{{{data_stream.namespace}}}",
-        "override": false
+        "override": false,
+        "if": "ctx.data_stream?.namespace != null"
       }
     },
     {

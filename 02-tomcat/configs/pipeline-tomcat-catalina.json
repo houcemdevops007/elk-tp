@@ -8,10 +8,19 @@
         "patterns": [
           "%{MONTHDAY:_tmp.day}-%{MONTH:_tmp.month}-%{YEAR:_tmp.year} %{TIME:_tmp.time} %{LOGLEVEL:log.level} \\[%{DATA:process.thread.name}\\] %{JAVACLASS:log.logger}%{SPACE}%{GREEDYMULTILINE:message}"
         ],
-        "pattern_definitions": { "GREEDYMULTILINE": "(.|\\n)*" },
+        "pattern_definitions": {
+          "GREEDYMULTILINE": "(.|\\n)*"
+        },
         "ignore_missing": true,
         "on_failure": [
-          { "append": { "field": "tags", "value": ["grok_tomcat_failed"] } }
+          {
+            "append": {
+              "field": "tags",
+              "value": [
+                "grok_tomcat_failed"
+              ]
+            }
+          }
         ]
       }
     },
@@ -26,7 +35,10 @@
       "date": {
         "field": "_tmp.ts",
         "target_field": "@timestamp",
-        "formats": ["dd-MMM-yyyy HH:mm:ss.SSS", "dd-MMM-yyyy HH:mm:ss"],
+        "formats": [
+          "dd-MMM-yyyy HH:mm:ss.SSS",
+          "dd-MMM-yyyy HH:mm:ss"
+        ],
         "timezone": "{{TIMEZONE}}",
         "locale": "en",
         "ignore_failure": true
@@ -44,23 +56,55 @@
       "grok": {
         "description": "extrait le type et le message de l'exception Java, s'il y en a une",
         "field": "message",
-        "patterns": ["%{JAVACLASS:error.type}: %{DATA:error.message}(\\n|$)"],
+        "patterns": [
+          "%{JAVACLASS:error.type}: %{DATA:error.message}(\\n|$)"
+        ],
         "ignore_missing": true,
         "ignore_failure": true
       }
     },
-    { "set": { "field": "service.name", "value": "shopflow-api", "override": false } },
-    { "set": { "field": "service.environment", "value": "{{{data_stream.namespace}}}", "override": false } },
-    { "set": { "field": "event.module", "value": "tomcat", "override": false } },
     {
       "set": {
-        "field": "event.outcome", "value": "failure",
+        "field": "service.name",
+        "value": "shopflow-api",
+        "override": false
+      }
+    },
+    {
+      "set": {
+        "field": "service.environment",
+        "value": "{{{data_stream.namespace}}}",
+        "override": false,
+        "if": "ctx.data_stream?.namespace != null"
+      }
+    },
+    {
+      "set": {
+        "field": "event.module",
+        "value": "tomcat",
+        "override": false
+      }
+    },
+    {
+      "set": {
+        "field": "event.outcome",
+        "value": "failure",
         "if": "ctx.log?.level == 'ERROR'"
       }
     },
-    { "remove": { "field": "_tmp", "ignore_missing": true } }
+    {
+      "remove": {
+        "field": "_tmp",
+        "ignore_missing": true
+      }
+    }
   ],
   "on_failure": [
-    { "set": { "field": "error.message", "value": "{{ _ingest.on_failure_message }}" } }
+    {
+      "set": {
+        "field": "error.message",
+        "value": "{{ _ingest.on_failure_message }}"
+      }
+    }
   ]
 }

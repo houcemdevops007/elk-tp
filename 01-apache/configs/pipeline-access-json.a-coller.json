@@ -26,6 +26,13 @@ PUT _ingest/pipeline/logs-shopflow_apache.access_json@custom
       }
     },
     {
+      "dot_expander": {
+        "description": "éclate « a.b.c » en objets imbriqués : sans cela, les processeurs suivants, qui adressent ctx.a.b.c, ne trouvent rien — et échouent en silence",
+        "field": "*",
+        "override": true
+      }
+    },
+    {
       "date": {
         "field": "@timestamp",
         "formats": [
@@ -83,7 +90,8 @@ PUT _ingest/pipeline/logs-shopflow_apache.access_json@custom
       "set": {
         "field": "service.environment",
         "value": "{{{data_stream.namespace}}}",
-        "override": false
+        "override": false,
+        "if": "ctx.data_stream?.namespace != null"
       }
     },
     {
