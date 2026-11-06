@@ -6,7 +6,9 @@
 
 | Élément | À faire | Quand |
 |---|---|---|
-| Politiques d'agent | `policy-studentXX` (Apache, Tomcat, System, Jolokia) et `policy-studentXX-k8s` (Kubernetes) pour chaque candidat | Avant J1 |
+| Politiques d'agent | Déjà créées : `efi-studentXX-apache`, `efi-studentXX-tomcat` et `efi-studentXX-k8s`, espace de nom `studentXX`, sortie `efi-elasticsearch` | Fait |
+| **Troisième intégration Apache** | Ajouter **Custom Logs** (`/var/log/apache2/access_json.log`, dataset `shopflow_apache.access_json`) à chaque `efi-studentXX-apache`. **Sans elle, aucune mesure de latence n'est possible** : ni percentiles, ni scénario « requêtes lentes », ni SLO de latence du projet | **Avant J1** |
+| Intégrations Tomcat | Un agent n'appartient qu'à une politique : sur une VM unique, les ajouter à `efi-studentXX-apache` et non à `efi-studentXX-tomcat`, qui ne sert qu'au cas d'une VM dédiée | Avant J2 |
 | Tokens d'enrôlement | Un par politique, transmis **individuellement** | Avant J1 |
 | Espaces Kibana | Un espace `studentXX` par candidat | Avant J1 |
 | Clés d'API | Une par candidat, restreinte à ses data streams | Avant J1 |

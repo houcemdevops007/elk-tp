@@ -190,18 +190,28 @@ Le scoreboard, caractère par caractère :
 
 ## Étape 3 — Créer la politique d'agent et les intégrations
 
-Cette étape se fait dans **Kibana → Fleet**. Sur la plateforme EFI, la création des politiques est une opération formateur ; la lecture et la vérification sont à vous.
+Cette étape se fait dans **Kibana → Fleet**. Sur la plateforme EFI, les politiques sont **déjà créées** : une par candidat et par rôle de machine. Vous n'en créez aucune — vous lisez la vôtre, vous vérifiez ce qu'elle contient, et vous demandez l'ajout de ce qui manque.
 
-> **🔒 Formateur / administrateur** — Pour chaque candidat : créer la politique `policy-studentXX` (namespace `studentXX`, output Elasticsearch, *Agent monitoring* activé), y ajouter les intégrations **Apache HTTP Server** et **System**, générer un token d'enrôlement et le transmettre **individuellement**. Créer aussi `policy-studentXX-k8s` pour le chapitre 3. Une politique par rôle de machine, jamais une par machine.
+> **🔒 Formateur / administrateur** — Les politiques `efi-studentXX-apache`, `efi-studentXX-tomcat` et `efi-studentXX-k8s` existent pour les vingt candidats, avec l'espace de nom `studentXX` et la sortie `efi-elasticsearch`. Trois actions restent à faire **avant** la séance : **(1)** ajouter à chaque `efi-studentXX-apache` la troisième intégration **Custom Logs** décrite en 3.3 — sans elle, aucune mesure de latence n'est possible dans tout le manuel ; **(2)** vérifier les chemins de journaux de l'intégration Apache ; **(3)** transmettre à chaque candidat, **individuellement**, le token d'enrôlement de sa politique.
 
-### 3.1 Ce que contient la politique
+### 3.1 Ce que contient déjà votre politique
 
-| Élément | Valeur pour vous | Pourquoi |
+Ouvrez **Fleet → Agent policies → `efi-studentXX-apache`**. Vous devez y voir deux intégrations :
+
+| Intégration | Rôle | Espace de nom | Sortie |
+|---|---|---|---|
+| **Apache HTTP Server** | `access.log`, `error.log`, métriques `mod_status` | `studentXX` | `efi-elasticsearch` |
+| **System** | CPU, mémoire, disque, réseau de la VM | `studentXX` | `efi-elasticsearch` |
+
+Et, dans l'onglet **Paramètres**, deux réglages qui vous concernent :
+
+| Élément | Valeur attendue | Pourquoi |
 |---|---|---|
-| Nom | `policy-studentXX` | Un token par politique : le token détermine ce qui est collecté |
-| Namespace | `studentXX` | Troisième segment du nom de data stream : c'est votre cloison sur le cluster partagé |
-| Output | Elasticsearch `https://172.16.3.50:9200` | Destination des données |
+| Espace de nom | `studentXX` | Troisième segment du nom de data stream : c'est votre cloison sur le cluster partagé |
+| Sortie | `efi-elasticsearch` | Destination des données |
 | Agent monitoring | activé | La seule visibilité le jour où la collecte tombe |
+
+> **⚠️ Piège fréquent** — Deux intégrations ne suffisent pas. Il en faut une **troisième**, et son absence ne produit aucune erreur : la collecte fonctionnera, les dashboards se rempliront, et il manquera simplement la durée des requêtes — donc les percentiles, le scénario « requêtes lentes » et le SLO de latence du projet final. Vérifiez-le maintenant, pas au chapitre 4.
 
 ### 3.2 L'intégration Apache HTTP Server
 
@@ -213,15 +223,38 @@ Trois jeux de données à activer, avec vos chemins :
 | Error logs | `/var/log/apache2/error.log` | `logs-apache.error-studentXX` |
 | Status metrics | `http://localhost/server-status`, période 10 s | `metrics-apache.status-studentXX` |
 
-### 3.3 L'intégration Custom Logs pour le journal JSON
+### 3.3 La troisième intégration : Custom Logs — celle qui apporte la durée
+
+C'est l'intégration que votre politique n'a pas encore, et c'est la plus importante du chapitre.
+
+**Pourquoi elle est indispensable.** Les formats de journal standards d'Apache (`common`, `combined`) ne contiennent **pas** la durée de traitement. L'intégration Apache officielle sait parser ces formats standards — et rien d'autre. Sans un second journal, vous n'avez donc aucun champ de durée, et il devient impossible de calculer un percentile de latence. Ce n'est pas un détail de confort : c'est ce qui bloque le TP 4.3, le scénario « requêtes lentes » du chapitre 1, la courbe P50/P95/P99 du dashboard, et le SLO de latence du projet final.
+
+**Comment l'ajouter**, dans `efi-studentXX-apache` :
+
+1. **Fleet → Agent policies → `efi-studentXX-apache` → Ajouter une intégration**.
+2. Chercher et choisir **Custom Logs** (entrée `filestream`).
+3. Renseigner :
 
 | Paramètre | Valeur |
 |---|---|
-| Chemin | `/var/log/apache2/access_json.log` |
+| Nom de l'intégration | `custom-logs-efi-studentXX-apache` |
+| Chemin du fichier | `/var/log/apache2/access_json.log` |
 | Dataset name | `shopflow_apache.access_json` |
-| Namespace | `studentXX` |
+| Espace de nom | `studentXX` |
+| Sortie | `efi-elasticsearch` |
 
-Le data stream produit sera donc `logs-shopflow_apache.access_json-studentXX`, et le pipeline personnalisé qu'il appellera s'appelle `logs-shopflow_apache.access_json@custom`. Cette convention `<type>-<dataset>@custom` n'est pas négociable : c'est elle qui fait que votre pipeline est appelé automatiquement.
+4. Enregistrer. La politique passe à **3 intégrations** et sa révision augmente ; les agents déjà enrôlés reçoivent le changement en quelques secondes, sans réinstallation.
+
+Le data stream produit sera `logs-shopflow_apache.access_json-studentXX`, et le pipeline personnalisé qu'il appellera s'appelle `logs-shopflow_apache.access_json@custom`. Cette convention `<type>-<dataset>@custom` n'est pas négociable : c'est elle qui fait que votre pipeline est appelé automatiquement.
+
+**✅ Vérification de l'étape 3.3** — la politique affiche bien trois intégrations, et après quelques requêtes :
+
+```bash
+curl -s --cacert /etc/efi/pki/ca.crt -H "Authorization: ApiKey $ES_API_KEY" \
+  "https://172.16.3.50:9200/logs-shopflow_apache.access_json-studentXX/_count?pretty"
+```
+
+Un compte supérieur à zéro signifie que la troisième intégration fonctionne. Un data stream inexistant signifie qu'elle n'a pas été ajoutée, ou que le chemin du fichier ne correspond pas à celui écrit par Apache.
 
 ### 3.4 Créer le pipeline `@custom` — avant la première donnée
 

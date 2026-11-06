@@ -65,10 +65,11 @@
   "derived": {
     "STUDENT_ID": "student{{NUM}}",
     "NAMESPACE": "student{{NUM}}",
-    "POLICY": "policy-student{{NUM}}",
+    "POLICY": "efi-student{{NUM}}-tomcat",
+    "POLICY_HOTE": "efi-student{{NUM}}-apache",
     "SPACE": "student{{NUM}}"
   },
-  "recap": ["STUDENT_ID", "NAMESPACE", "POLICY", "STUDENT_HOST", "CATALINA_HOME",
+  "recap": ["STUDENT_ID", "NAMESPACE", "POLICY", "POLICY_HOTE", "STUDENT_HOST", "CATALINA_HOME",
             "CATALINA_LOGS", "TOMCAT_PORT", "APP_CONTEXT", "HEAP_MB", "TIMEZONE", "ES_VERSION"],
   "commands": [
     { "from": "scripts/parcours.sh", "name": "parcours.sh",

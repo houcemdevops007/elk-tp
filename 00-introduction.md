@@ -41,8 +41,8 @@ flowchart TB
         APA["Apache HTTP Server<br/>access.log, error.log<br/>mod_status"]
         TOM["Tomcat + JVM<br/>catalina, access, app JSON<br/>JMX"]
         K3S["k3s<br/>namespace studentXX<br/>logs et metriques des pods"]
-        AGT["Elastic Agent 9.5.5<br/>politique policy-studentXX"]
-        DS["Elastic Agent DaemonSet<br/>policy-studentXX-k8s"]
+        AGT["Elastic Agent 9.5.5<br/>politique efi-studentXX-apache"]
+        DS["Elastic Agent DaemonSet<br/>efi-studentXX-k8s"]
     end
 
     MIN["MinIO S3<br/>172.16.50.10:9000<br/>SLM 01:30 UTC, 14 jours"]
@@ -124,12 +124,15 @@ Chaque candidat travaille dans **son espace Kibana** (`studentXX`) : les objets 
 
 Un binaire unique installé sur la machine à observer. Il ne sait rien faire tout seul : son comportement est **entièrement** défini par la politique qu'il reçoit. C'est un superviseur qui lance les processus de collecte sous-jacents ; vous n'interagissez plus avec eux.
 
-Sur la VM du candidat, il y a **deux agents distincts** :
+Sur la VM du candidat, il y a **deux agents distincts**, et la plateforme EFI met à votre disposition **trois politiques** :
 
-| Agent | Politique | Ce qu'il collecte | Chapitres |
+| Agent | Politique utilisée | Ce qu'il collecte | Chapitres |
 |---|---|---|---|
-| Agent de l'hôte | `policy-studentXX` | Apache, Tomcat, System | 1 et 2 |
-| Agent en DaemonSet dans k3s | `policy-studentXX-k8s` | Logs des conteneurs, métriques kubelet et kube-state-metrics, événements | 3 et 4 |
+| Agent de l'hôte | `efi-studentXX-apache` | Apache, System — puis Tomcat au chapitre 2 | 1 et 2 |
+| Agent en DaemonSet dans k3s | `efi-studentXX-k8s` | Logs des conteneurs, métriques kubelet et kube-state-metrics, événements | 3 et 4 |
+| *(en réserve)* | `efi-studentXX-tomcat` | Prévue pour un Tomcat installé sur une **VM distincte** | — |
+
+> **⚠️ Piège fréquent** — **Un agent appartient à une seule politique.** Si Apache et Tomcat tournent sur la même VM — c'est le cas de ce manuel — il n'y a qu'un agent d'hôte, donc une seule politique pour les deux : au chapitre 2, les intégrations Tomcat sont **ajoutées à `efi-studentXX-apache`**. La politique `efi-studentXX-tomcat` ne sert que si le formateur vous attribue une seconde VM pour le backend. Enrôler deux fois la même machine avec deux tokens différents ne fonctionne pas.
 
 > **À retenir** — Rien ne se configure sur la machine observée. Le seul acte local est l'installation du binaire et l'enrôlement. Quels fichiers lire, à quelle fréquence, vers quel namespace, vers quelle destination : tout vient de la politique. C'est le changement de paradigme par rapport aux Beats configurés fichier par fichier.
 
@@ -339,8 +342,8 @@ Suivons **une seule ligne** d'`access.log`, de son écriture à son affichage.
 | Identifiant candidat | `student07` | Suffixe de **tous** vos objets |
 | Compte Kibana et mot de passe | — | Connexion à l'interface |
 | Espace Kibana | `student07` | Vos objets sauvegardés |
-| Token d'enrôlement de `policy-student07` | secret | Chapitres 1 et 2 |
-| Token d'enrôlement de `policy-student07-k8s` | secret | Chapitres 3 et 4 |
+| Token d'enrôlement de `efi-student07-apache` | secret | Chapitres 1 et 2 — l'agent de la VM |
+| Token d'enrôlement de `efi-student07-k8s` | secret | Chapitres 3 et 4 — le DaemonSet |
 | Clé d'API Elasticsearch restreinte | secret | Scripts de vérification |
 | Nom d'hôte et IP de votre VM | `vm-student07`, `172.16.20.7` | Les générateurs |
 | Chemin de la CA interne | `/etc/efi/pki/ca.crt` | Enrôlement de l'agent |
@@ -376,7 +379,7 @@ Puis, dans le navigateur, sur `https://elk.efi-academy.com/tp/` :
 1. Vous êtes connecté et **dans votre espace** `studentXX` — vérifiez le sélecteur d'espace en haut à gauche.
 2. **Stack Management → Index Management → Data streams** : vous voyez au moins un data stream. Décomposez son nom en type / dataset / namespace.
 3. **Stack Management → Index Lifecycle Policies** : relevez la **rétention** avant suppression. Notez-la : elle explique la disparition des données anciennes.
-4. **Fleet → Agent policies** : votre politique `policy-studentXX` existe, avec le namespace `studentXX`.
+4. **Fleet → Agent policies** : vos politiques `efi-studentXX-apache` et `efi-studentXX-k8s` existent. Ouvrez la première : l'**espace de nom** de chaque intégration doit valoir `studentXX`, et la **sortie** `efi-elasticsearch`.
 5. **Fleet → Integrations** : inventoriez ce qui est **réellement** disponible — Apache HTTP Server, System, Custom Logs, Kubernetes, Apache Tomcat, PostgreSQL. Notez les versions.
 6. **Stack Management → License Management** : relevez le niveau de licence. Il conditionne les SLO natifs et plusieurs connecteurs d'alerte (chapitre 5).
 
@@ -390,7 +393,7 @@ Puis, dans le navigateur, sur `https://elk.efi-academy.com/tp/` :
 | Règle d'alerte | `<symptôme>-studentXX` | `taux-5xx-apache-student07` |
 | Namespace de data stream | `studentXX` | `student07` |
 | Namespace Kubernetes | `studentXX` | `student07` |
-| Politique d'agent | `policy-studentXX` | `policy-student07` |
+| Politique d'agent | `efi-studentXX-<rôle>` | `efi-student07-apache` |
 
 ### 5.3 La méthode que vous utiliserez dans tout le manuel
 

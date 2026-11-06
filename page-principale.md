@@ -52,8 +52,8 @@ Vous n'administrez pas la plateforme Elastic — vous l'utilisez, comme en entre
 |---|---|---|
 | Identifiant candidat | `student07` | Suffixe de **tous** vos objets |
 | Compte Kibana et espace dédié | `student07` | Vos objets sauvegardés |
-| Token d'enrôlement de `policy-studentXX` | secret | Chapitres 1 et 2 |
-| Token d'enrôlement de `policy-studentXX-k8s` | secret | Chapitres 3 et 4 |
+| Token d'enrôlement de `efi-studentXX-apache` | secret | Chapitres 1 et 2 — l'agent de votre VM |
+| Token d'enrôlement de `efi-studentXX-k8s` | secret | Chapitres 3 et 4 — l'agent en DaemonSet |
 | Clé d'API Elasticsearch restreinte | secret | Scripts de vérification |
 | Nom d'hôte et IP de votre VM | `vm-student07`, `172.16.20.7` | Les générateurs de configuration |
 | Chemin de la CA interne | `/etc/efi/pki/ca.crt` | Enrôlement de l'agent |

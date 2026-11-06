@@ -224,7 +224,9 @@ Le Markdown reste la source : le SVG est déposé à côté (`<page>.mermaid-<n>
 
 | Élément | Détail |
 |---|---|
-| Politiques d'agent | `policy-studentXX` (Apache, Tomcat, System, Jolokia) **et** `policy-studentXX-k8s` (Kubernetes) |
+| Politiques d'agent | Trois par candidat : `efi-studentXX-apache`, `efi-studentXX-tomcat`, `efi-studentXX-k8s` — espace de nom `studentXX`, sortie `efi-elasticsearch` |
+| **Intégration Custom Logs** | À ajouter à chaque `efi-studentXX-apache` : `/var/log/apache2/access_json.log`, dataset `shopflow_apache.access_json`. **C'est elle qui apporte la durée des requêtes** — sans elle, pas de percentiles ni de SLO de latence |
+| Un agent, une politique | Apache et Tomcat sur la même VM : les intégrations Tomcat s'ajoutent à `efi-studentXX-apache`. `efi-studentXX-tomcat` ne sert que si le backend a sa propre VM |
 | Tokens d'enrôlement | Un par politique, transmis **individuellement** |
 | Espaces Kibana | Un espace `studentXX` par candidat |
 | Clés d'API | Une par candidat, restreinte à ses data streams |

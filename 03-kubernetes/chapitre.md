@@ -2,7 +2,7 @@
 
 | Niveau | Durée estimée | Prérequis |
 |---|---|---|
-| Intermédiaire + | 3 h 00 (dont 2 h de manipulation) | Chapitres 1 et 2 terminés. k3s installé sur votre VM, dont vous êtes administrateur. `kubectl` fonctionnel. Notions de pod, deployment, service, namespace. Token d'enrôlement de `policy-studentXX-k8s`. |
+| Intermédiaire + | 3 h 00 (dont 2 h de manipulation) | Chapitres 1 et 2 terminés. k3s installé sur votre VM, dont vous êtes administrateur. `kubectl` fonctionnel. Notions de pod, deployment, service, namespace. Token d'enrôlement de `efi-studentXX-k8s`. |
 
 Dans Kubernetes, un pod est éphémère **par conception**. Il peut disparaître avec ses logs à tout instant : après une mise à jour, un `OOMKilled`, une éviction. Centraliser les logs n'est donc pas un confort, c'est la seule façon de pouvoir enquêter sur quelque chose qui n'existe plus.
 
@@ -139,7 +139,7 @@ kubectl apply -f manifests/20-elastic-agent-daemonset.yaml
 kubectl -n elastic-agent rollout status ds/elastic-agent --timeout=180s
 ```
 
-> **⚠️ Piège fréquent** — Ce token est **celui de `policy-studentXX-k8s`**, pas celui des chapitres 1 et 2. Un token est lié à **une** politique, et la politique détermine ce qui est collecté. Si vous enrôlez le DaemonSet avec le token de l'hôte, l'agent démarrera, sera `Healthy`… et ne collectera rien de Kubernetes. Aucune erreur ne vous le signalera.
+> **⚠️ Piège fréquent** — Ce token est **celui de `efi-studentXX-k8s`**, pas celui des chapitres 1 et 2. Un token est lié à **une** politique, et la politique détermine ce qui est collecté. Si vous enrôlez le DaemonSet avec le token de l'hôte, l'agent démarrera, sera `Healthy`… et ne collectera rien de Kubernetes. Aucune erreur ne vous le signalera.
 
 ### 2.3 Ce que l'agent monte, et pourquoi
 
@@ -156,7 +156,7 @@ Deux points du manifeste méritent attention :
 - `tolerations` sur `node-role.kubernetes.io/control-plane` : sur un k3s mono-nœud, le nœud **porte** le control plane. Sans cette tolérance, aucun agent n'est ordonnancé — et vous chercherez longtemps pourquoi rien n'est collecté.
 - `requests` et `limits` sur le DaemonSet : un collecteur non borné peut provoquer l'éviction de pods applicatifs. L'outil d'observation deviendrait la cause de l'incident.
 
-**✅ Vérification de l'étape 2** — un pod d'agent par nœud, tous `Running`, et l'agent visible dans **Fleet → Agents** rattaché à `policy-studentXX-k8s`.
+**✅ Vérification de l'étape 2** — un pod d'agent par nœud, tous `Running`, et l'agent visible dans **Fleet → Agents** rattaché à `efi-studentXX-k8s`.
 
 ```bash
 kubectl -n elastic-agent get ds,pods -o wide
@@ -563,7 +563,7 @@ kubectl -n studentXX logs -l app.kubernetes.io/name=panne-throttling --tail=5
 | Symptôme | Cause la plus probable | Correction |
 |---|---|---|
 | Aucun pod d'agent n'est ordonnancé | Tolérance absente alors que le nœud porte le control plane | Les `tolerations` du manifeste fourni |
-| Agent `Healthy` mais aucune donnée Kubernetes | Enrôlé avec le token de la politique **de l'hôte** | Utiliser le token de `policy-studentXX-k8s` |
+| Agent `Healthy` mais aucune donnée Kubernetes | Enrôlé avec le token de la politique **de l'hôte** | Utiliser le token de `efi-studentXX-k8s` |
 | Logs sans nom de pod ni namespace | RBAC insuffisant : l'agent ne peut pas lire l'API | Appliquer `ClusterRole` et `ClusterRoleBinding` |
 | Aucun data stream `state_*` | kube-state-metrics absent ou non collecté | Le déployer, puis vérifier le jeu de données dans l'intégration |
 | `x509` à l'enrôlement du DaemonSet | Secret de la CA absent ou mal monté | `kubectl -n elastic-agent get secret elastic-agent-ca` |

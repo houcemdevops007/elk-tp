@@ -38,7 +38,7 @@
       "pattern": "^/[^\\s]*[^/\\s]$", "error": "Chemin absolu attendu.",
       "help": "Déposée dans un Secret monté par le DaemonSet, pour valider le certificat de Fleet Server." },
     { "key": "ENROLL_TOKEN_K8S", "label": "Token d'enrôlement de la politique k8s", "type": "password",
-      "required": true, "placeholder": "token de policy-studentXX-k8s",
+      "required": true, "placeholder": "token de efi-studentXX-k8s",
       "help": "SECRET, et DIFFÉRENT de celui des chapitres 1 et 2 : il désigne la politique qui porte l'intégration Kubernetes. Il n'est jamais écrit dans un manifeste, mais dans un Secret." },
     { "key": "ES_API_KEY", "label": "Clé d'API Elasticsearch (facultatif)", "type": "password",
       "required": false, "placeholder": "pour le script de vérification",
@@ -47,8 +47,8 @@
   "derived": {
     "STUDENT_ID": "student{{NUM}}",
     "NAMESPACE": "student{{NUM}}",
-    "POLICY": "policy-student{{NUM}}",
-    "POLICY_K8S": "policy-student{{NUM}}-k8s",
+    "POLICY": "efi-student{{NUM}}-apache",
+    "POLICY_K8S": "efi-student{{NUM}}-k8s",
     "SPACE": "student{{NUM}}"
   },
   "recap": ["STUDENT_ID", "NAMESPACE", "POLICY_K8S", "K3S_CLUSTER", "NODE_NAME",

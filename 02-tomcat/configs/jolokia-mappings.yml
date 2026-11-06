@@ -1,7 +1,12 @@
 # ─────────────────────────────────────────────────────────────────────────────
 #  jolokia-mappings.yml — métriques JVM et Tomcat de {{STUDENT_ID}}
 #
-#  À reporter dans l'intégration « Jolokia » de la politique {{POLICY}}.
+#  À reporter dans l'intégration « Jolokia » de la politique qui pilote
+#  l'agent de la machine où tourne Tomcat :
+#    - Apache et Tomcat sur la MÊME VM (cas de ce manuel) : {{POLICY_HOTE}}
+#    - Tomcat sur une VM dédiée                           : {{POLICY}}
+#  Un agent n'appartient qu'à UNE politique : n'ajoutez pas ces mappings
+#  des deux côtés.
 #  L'agent Jolokia expose les MBeans en HTTP/JSON sur 127.0.0.1:{{JOLOKIA_PORT}}
 #  (voir la ligne -javaagent de setenv.sh).
 #

@@ -38,8 +38,13 @@ curl -s http://localhost:{{TOMCAT_PORT}}/{{APP_CONTEXT}}/api/cart | head -c 120 
 #   POST .../_simulate                                            <- pipeline-tomcat-simulate.json
 #   Attendu : event.duration = 4102000000 ns (et NON 4102000)
 
-# ÉTAPE 5 — Intégrations dans la politique {{POLICY}} ------------------------
-#   Fleet -> Agent policies -> {{POLICY}} -> Add integration
+# ÉTAPE 5 — Intégrations Tomcat ----------------------------------------------
+#   Un agent n'appartient qu'à UNE politique. Apache et Tomcat tournant ici sur
+#   la MÊME VM, les intégrations Tomcat s'ajoutent à la politique de l'agent
+#   déjà enrôlé au chapitre 1 : {{POLICY_HOTE}}
+#   (la politique {{POLICY}} ne sert que si Tomcat a sa propre VM).
+#
+#   Fleet -> Agent policies -> {{POLICY_HOTE}} -> Add integration
 #     a) Apache Tomcat si elle existe dans le catalogue, sinon Custom Logs :
 #          {{CATALINA_LOGS}}/localhost_access_log.*.txt   dataset shopflow_tomcat.access
 #          {{CATALINA_LOGS}}/catalina.out                 dataset shopflow_tomcat.catalina

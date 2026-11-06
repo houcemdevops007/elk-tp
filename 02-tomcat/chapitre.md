@@ -223,7 +223,22 @@ curl -s http://localhost:8080/shopflow-api/api/cart | head -c 120
 
 ## Étape 4 — Collecter : intégration, multiligne, pipelines
 
-### 4.1 Deux voies, et comment choisir
+### 4.1 Dans quelle politique ? — un agent n'en a qu'une
+
+C'est la première question, et elle se tranche avant de toucher à Fleet.
+
+**Un Elastic Agent appartient à une seule politique.** Sur la VM de ce manuel, Apache et Tomcat tournent sur la **même machine**, donc il n'y a qu'un agent d'hôte — celui que vous avez enrôlé au chapitre 1 dans `efi-studentXX-apache`. Les intégrations Tomcat vont donc **dans cette même politique**.
+
+| Votre situation | Politique à utiliser | Geste dans Fleet |
+|---|---|---|
+| Apache et Tomcat sur la **même VM** (cas de ce manuel) | `efi-studentXX-apache` | Ajouter les intégrations Tomcat à la politique existante : l'agent les reçoit en quelques secondes, sans réinstallation |
+| Tomcat sur une **VM dédiée** | `efi-studentXX-tomcat` | Enrôler cette seconde VM avec le token de cette politique |
+
+> **⚠️ Piège fréquent** — Tenter d'enrôler une deuxième fois la même machine avec le token de `efi-studentXX-tomcat` ne « double » pas la collecte : au mieux l'installation échoue parce qu'un agent est déjà installé, au pire vous remplacez la politique précédente et **la collecte Apache s'arrête** — sans aucune erreur visible, puisque l'agent reste `Healthy`. Si vous voyez les données Apache se tarir au chapitre 2, c'est la première chose à vérifier.
+
+> **🔒 Formateur / administrateur** — Les politiques `efi-studentXX-tomcat` existent déjà sur la plateforme, prévues pour le cas d'une VM dédiée. Dans le montage à une seule VM, elles restent inutilisées : ajoutez les intégrations Tomcat à `efi-studentXX-apache`, et pensez à mettre à jour sa description.
+
+### 4.2 Deux voies, et comment choisir
 
 | Voie | Quand la choisir | Ce qu'il faut savoir |
 |---|---|---|
@@ -243,7 +258,7 @@ Un **dataset par nature de journal**, et non un dataset fourre-tout :
 
 > **⚠️ Piège fréquent** — Les noms de fichiers contiennent la date : `catalina.2026-11-06.log`. Les jokers sont donc **indispensables** dans les chemins déclarés. Un chemin sans joker collecte le fichier du jour de la configuration, puis plus rien — et personne ne s'en aperçoit avant plusieurs jours.
 
-### 4.2 Le multiligne : une exception = un document
+### 4.3 Le multiligne : une exception = un document
 
 C'est le point technique central. Collez `custom-logs-multiline.yml` dans le champ **Custom configurations** de l'entrée filestream.
 
@@ -257,7 +272,7 @@ C'est le point technique central. Collez `custom-logs-multiline.yml` dans le cha
 
 Deux stratégies de motif existent : reconnaître le début d'un événement (une date), ou reconnaître les continuations (lignes commençant par un espace, `at `, `Caused by:`). La première est plus robuste, parce qu'elle ne dépend pas du style d'indentation de la JVM.
 
-### 4.3 Les deux pipelines
+### 4.4 Les deux pipelines
 
 Créez-les dans **Dev Tools → Console** avant d'activer la collecte :
 
@@ -291,7 +306,7 @@ Ce que fait le pipeline de `catalina` :
 
 > **⚠️ Piège fréquent** — Le fuseau horaire est la cause la plus fréquente de « mes logs sont décalés de deux heures ». Le format de date de `catalina` ne contient **aucune** indication de fuseau : le processeur `date` doit se le faire préciser. Et comme Elasticsearch stocke toujours en UTC, c'est Kibana qui réaffiche dans votre fuseau — un décalage constant signale un `timezone` absent ou faux dans le pipeline.
 
-### 4.4 Les métriques JVM
+### 4.5 Les métriques JVM
 
 Il n'y a pas d'agent APM dans ce manuel : les métriques JVM viennent de **JMX via Jolokia**. Ajoutez l'intégration **Jolokia** à votre politique avec les mappings de `jolokia-mappings.yml`. Vous y définissez vous-même les noms de champs cibles : gardez-les stables, vos dashboards en dépendent.
 
