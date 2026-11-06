@@ -15,7 +15,7 @@
 | Intégrations | Vérifier au catalogue : Apache HTTP Server, System, Custom Logs, Kubernetes, PostgreSQL, Jolokia, Apache Tomcat | Avant J1 |
 | Licence | Relever le niveau et le communiquer : il conditionne les SLO natifs et les connecteurs d'alerte | Avant J1 |
 | Images | Pré-charger `httpd`, `tomcat`, `postgres`, `busybox`, `kube-state-metrics`, `elastic-agent` sur les VM, ou fournir un miroir | Avant J4 |
-| CA interne | Déposer `/etc/efi/pki/ca.crt` sur chaque VM | Avant J1 |
+| CA interne | Sur le poste d'administration : `~/efi-elk-platform/pki/ca.crt` (vérifié). **Sur chaque VM de candidat : à déployer**, puis reporter le chemin dans le champ « Autorité de certification » des générateurs — sans elle, l'enrôlement échoue sur `x509` | Avant J1 |
 | Rétention ILM | Vérifier qu'elle couvre la durée de la formation ; sinon prévenir que les SLO sur 7 jours porteront sur moins de données | Avant J1 |
 | Cette page et le corrigé | Passer en brouillon non visible | Avant J1 |
 

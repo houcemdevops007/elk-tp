@@ -263,7 +263,7 @@ interne, et un accès HTTPS à **Kibana** (port 5601 — pas Elasticsearch).
 Test d'accès avant toute chose :
 
 ```bash
-./tools/verifier-acces-kibana.sh https://172.16.3.53:5601 /etc/efi/pki/ca.crt
+./tools/verifier-acces-kibana.sh https://172.16.3.53:5601 ~/efi-elk-platform/pki/ca.crt
 ```
 
 Le script déroule les causes dans l'ordre — fichier de CA, port, TLS, validation du
@@ -289,7 +289,7 @@ Elle n'est affichée **qu'une fois**.
 Vérifiez-la avant de lancer le script :
 
 ```bash
-curl -s --cacert /etc/efi/pki/ca.crt -H "Authorization: ApiKey $KIBANA_API_KEY" -H 'kbn-xsrf: true' "https://172.16.3.53:5601/api/fleet/agent_policies?perPage=1"
+curl -s --cacert ~/efi-elk-platform/pki/ca.crt -H "Authorization: ApiKey $KIBANA_API_KEY" -H 'kbn-xsrf: true' "https://172.16.3.53:5601/api/fleet/agent_policies?perPage=1"
 ```
 
 Du JSON contenant `items` : c'est bon. `401` : ce n'est pas la valeur *Encoded*. `403` :
@@ -300,11 +300,11 @@ le compte n'a pas les droits Fleet. Sans clé d'API, le script accepte
 
 ```bash
 export KIBANA_API_KEY='<cle-api-avec-droits-fleet>'
-python3 tools/ajouter-custom-logs.py --simuler
+python3 tools/ajouter-custom-logs.py --cacert ~/efi-elk-platform/pki/ca.crt --simuler
 ```
 
 ```bash
-python3 tools/ajouter-custom-logs.py --appliquer
+python3 tools/ajouter-custom-logs.py --cacert ~/efi-elk-platform/pki/ca.crt --appliquer
 ```
 
 | Garde-fou | Comportement |
@@ -336,7 +336,8 @@ curl -s --cacert /etc/efi/pki/ca.crt -H "Authorization: ApiKey $ES_API_KEY" "htt
 | Tokens d'enrôlement | Un par politique, transmis **individuellement** |
 | Espaces Kibana | Un espace `studentXX` par candidat |
 | Clés d'API | Une par candidat, restreinte à ses data streams |
-| CA interne | Déposée sur chaque VM (par défaut `/etc/efi/pki/ca.crt`) |
+| CA interne — poste d'administration | `~/efi-elk-platform/pki/ca.crt` sur l'hôte `Infra` (vérifié) : c'est celle qu'utilisent les scripts `tools/` |
+| CA interne — VM des candidats | **À déployer sur chaque VM** et à reporter dans le champ « Autorité de certification » des générateurs. Sans elle, l'enrôlement de l'agent échoue sur `x509: certificate signed by unknown authority` |
 | VM | Apache, Tomcat, k3s, JDK (`javac`), au moins 4 Go de RAM |
 | Images conteneur | `httpd`, `tomcat`, `postgres`, `busybox`, `kube-state-metrics`, `elastic-agent` pré-chargées ou miroir interne |
 | Agent Jolokia | `jolokia-jvm-agent.jar` déposé sur les VM (sinon, voie de repli `jcmd`/`jstat` documentée) |
