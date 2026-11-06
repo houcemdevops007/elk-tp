@@ -20,7 +20,7 @@ passé explicitement.
 
 Préparation, une seule fois, dans Kibana :
   Fleet -> Agent policies -> efi-student01-apache -> Ajouter une intégration
-  -> Custom Logs :
+  -> « Custom Logs (Filestream) »  [PAS « Custom Logs (Deprecated) »] :
        Nom              custom-logs-efi-student01-apache
        Chemin           /var/log/apache2/access_json.log
        Dataset name     shopflow_apache.access_json
@@ -53,6 +53,14 @@ import urllib.request
 
 # Champs posés par Fleet : il faut les retirer avant de recréer l'objet,
 # sinon l'API refuse la création (ou crée un doublon incohérent).
+# Deux intégrations portent le titre « Custom Logs » dans le catalogue :
+#   filestream -> « Custom Logs (Filestream) », celle qu'il faut utiliser ;
+#   log        -> « Custom Logs (Deprecated) », l'ancienne, conservée pour les
+#                 politiques existantes.
+# Le script accepte les deux et détecte celle de la politique de référence :
+# on ne dépend donc pas du nom exact du paquet dans votre version.
+PAQUETS_CUSTOM_LOGS = ("filestream", "log")
+
 CHAMPS_EN_LECTURE_SEULE = {
     "id", "version", "revision", "created_at", "created_by",
     "updated_at", "updated_by", "elasticsearch", "spaceIds", "agents",
@@ -115,6 +123,8 @@ def main():
     ap.add_argument("--reference", default="efi-student01-apache")
     ap.add_argument("--motif", default="efi-student{NN}-apache")
     ap.add_argument("--nom-integration", default="custom-logs-{POLITIQUE}")
+    ap.add_argument("--paquet", choices=PAQUETS_CUSTOM_LOGS,
+                    help="forcer le paquet ; par défaut, détecté sur la politique de référence")
     ap.add_argument("--de", type=int, default=1)
     ap.add_argument("--a", type=int, default=20)
     ap.add_argument("--simuler", action="store_true", help="par défaut : simulation")
@@ -156,21 +166,31 @@ def main():
 
     paquets = fleet.pagine("/api/fleet/package_policies")
     ref_id = politiques[args.reference]["id"]
+    recherches = (args.paquet,) if args.paquet else PAQUETS_CUSTOM_LOGS
     modeles = [q for q in paquets
-               if politiques_de(q, ref_id) and q.get("package", {}).get("name") == "log"]
+               if politiques_de(q, ref_id)
+               and q.get("package", {}).get("name") in recherches]
 
     if not modeles:
         raise SystemExit(
-            f"[ERREUR] aucune intégration « Custom Logs » (paquet « log ») dans "
-            f"{args.reference}.\n"
-            f"         Créez-la d'abord À LA MAIN sur cette politique : c'est elle qui\n"
-            f"         sert de modèle, et cela évite de deviner le format attendu.\n"
+            f"[ERREUR] aucune intégration « Custom Logs » dans {args.reference}.\n"
+            f"         Paquets recherchés : {', '.join(recherches)}.\n"
+            f"         Créez-la d'abord À LA MAIN sur cette politique, en choisissant\n"
+            f"         « Custom Logs (Filestream) » et NON « Custom Logs (Deprecated) » :\n"
+            f"         c'est elle qui sert de modèle, et cela évite de deviner le format.\n"
             f"         Intégrations présentes : "
             + ", ".join(sorted({q.get('package', {}).get('name', '?') for q in paquets
                                 if politiques_de(q, ref_id)})))
+
     modele = modeles[0]
-    print(f"[i] modèle : « {modele['name']} » (paquet {modele['package']['name']} "
+    paquet = modele["package"]["name"]
+    print(f"[i] modèle : « {modele['name']} » (paquet {paquet} "
           f"v{modele['package']['version']}, espace de nom {modele.get('namespace')})")
+    if paquet == "log":
+        print("[!] Ce modèle utilise « Custom Logs (Deprecated) ». La syntaxe multiligne\n"
+              "    du chapitre 2 (parsers: - multiline:) est celle de FILESTREAM et ne\n"
+              "    fonctionnera pas avec ce paquet. Recréez le modèle avec\n"
+              "    « Custom Logs (Filestream) », puis relancez.")
 
     # ── Réplication ─────────────────────────────────────────────────────────
     cree = ignore = absent = 0
@@ -188,7 +208,8 @@ def main():
             continue
 
         deja = [q for q in paquets
-                if politiques_de(q, cible["id"]) and q.get("package", {}).get("name") == "log"]
+                if politiques_de(q, cible["id"])
+                and q.get("package", {}).get("name") in PAQUETS_CUSTOM_LOGS]
         if deja:
             print(f"  [déjà]    {nom_politique} : « {deja[0]['name']} » existe — rien à faire")
             ignore += 1

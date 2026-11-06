@@ -102,7 +102,7 @@ Les formats standards (`common`, `combined`) **ne contiennent pas la durée de t
 
 | Stratégie | Principe | Avantage | Risque |
 |---|---|---|---|
-| **A — journal JSON séparé** (retenue) | `access.log` reste en `combined` pour l'intégration officielle ; `access_json.log` porte `%D` et est lu par une intégration *Custom Logs* | Parsing JSON déterministe, aucun risque de casser l'intégration, noms de champs ECS maîtrisés | Double écriture sur disque, un data stream de plus |
+| **A — journal JSON séparé** (retenue) | `access.log` reste en `combined` pour l'intégration officielle ; `access_json.log` porte `%D` et est lu par une intégration *Custom Logs (Filestream)* | Parsing JSON déterministe, aucun risque de casser l'intégration, noms de champs ECS maîtrisés | Double écriture sur disque, un data stream de plus |
 | B — ajouter `%D` au format `combined` | Un seul journal, champ récupéré dans un pipeline `@custom` | Un seul data stream | Le motif de parsing de l'intégration peut rejeter la ligne : documents en erreur, ou champ ignoré |
 
 > **À retenir** — Un journal partiellement rejeté est **pire** qu'un journal sans durée, parce qu'il fausse tous les comptages sans rien signaler. C'est pourquoi ce chapitre retient la stratégie A, et pourquoi l'étape 4 vous fait compter les documents en erreur de parsing.
@@ -232,11 +232,12 @@ C'est l'intégration que votre politique n'a pas encore, et c'est la plus import
 **Comment l'ajouter**, dans `efi-studentXX-apache` :
 
 1. **Fleet → Agent policies → `efi-studentXX-apache` → Ajouter une intégration**.
-2. Chercher et choisir **Custom Logs** (entrée `filestream`).
+2. Chercher « Custom Logs ». **Deux entrées portent ce nom** : choisissez **Custom Logs (Filestream)**, et surtout pas **Custom Logs (Deprecated)**.
 3. Renseigner :
 
 | Paramètre | Valeur |
 |---|---|
+| Intégration | **Custom Logs (Filestream)** |
 | Nom de l'intégration | `custom-logs-efi-studentXX-apache` |
 | Chemin du fichier | `/var/log/apache2/access_json.log` |
 | Dataset name | `shopflow_apache.access_json` |
@@ -244,6 +245,8 @@ C'est l'intégration que votre politique n'a pas encore, et c'est la plus import
 | Sortie | `efi-elasticsearch` |
 
 4. Enregistrer. La politique passe à **3 intégrations** et sa révision augmente ; les agents déjà enrôlés reçoivent le changement en quelques secondes, sans réinstallation.
+
+> **⚠️ Piège fréquent** — Le catalogue propose **Custom Logs (Deprecated)** et **Custom Logs (Filestream)**. La première est l'ancien paquet `log`, conservé pour les politiques déjà en place. Les deux collectent bien un fichier, mais elles n'attendent **pas la même configuration avancée** : le traitement multiligne du chapitre 2 s'écrit `parsers: - multiline:` pour `filestream`, et `multiline.pattern` à plat pour l'ancien. Si vous prenez la dépréciée ici, la configuration multiligne du chapitre 2 sera silencieusement ignorée — et une exception Java produira quarante documents au lieu d'un.
 
 Le data stream produit sera `logs-shopflow_apache.access_json-studentXX`, et le pipeline personnalisé qu'il appellera s'appelle `logs-shopflow_apache.access_json@custom`. Cette convention `<type>-<dataset>@custom` n'est pas négociable : c'est elle qui fait que votre pipeline est appelé automatiquement.
 

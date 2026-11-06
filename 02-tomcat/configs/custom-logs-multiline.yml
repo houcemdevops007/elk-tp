@@ -2,7 +2,12 @@
 #  custom-logs-multiline.yml — {{STUDENT_ID}}
 #
 #  À coller dans le champ « Custom configurations » de l'entrée filestream
-#  de l'intégration Custom Logs, dans Fleet.
+#  de l'intégration « Custom Logs (Filestream) », dans Fleet.
+#
+#  ATTENTION : cette syntaxe (parsers: - multiline:) est celle de FILESTREAM.
+#  L'intégration « Custom Logs (Deprecated) », l'ancien paquet log, attend
+#  « multiline.pattern » à plat et IGNORERAIT ce bloc en silence — une
+#  exception Java produirait alors quarante documents au lieu d'un.
 #
 #  OBJECTIF : qu'une exception Java de 40 lignes devienne UN document,
 #  et non 40 documents inutilisables dont aucun ne contient l'erreur

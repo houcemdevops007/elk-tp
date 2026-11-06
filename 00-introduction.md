@@ -153,7 +153,7 @@ Une intégration est un paquet qui apporte, pour une technologie donnée : la co
 |---|---|---|
 | Apache HTTP Server | `access.log`, `error.log`, métriques `mod_status`, dashboards | 1 |
 | System | CPU, mémoire, disque, réseau, logs système | 1 à 4 |
-| Custom Logs (filestream) | Lecture de n'importe quel fichier, parsing à définir | 1, 2 |
+| **Custom Logs (Filestream)** | Lecture de n'importe quel fichier, parsing à définir. Ne pas confondre avec *Custom Logs (Deprecated)*, l'ancien paquet | 1, 2 |
 | Apache Tomcat | Parsing Tomcat prêt à l'emploi, si présente au catalogue | 2 |
 | Kubernetes | Logs des conteneurs, métriques kubelet / cAdvisor / kube-state-metrics, événements | 3, 4 |
 | PostgreSQL | Logs et métriques de la base | 4 |
@@ -380,7 +380,7 @@ Puis, dans le navigateur, sur `https://elk.efi-academy.com/tp/` :
 2. **Stack Management → Index Management → Data streams** : vous voyez au moins un data stream. Décomposez son nom en type / dataset / namespace.
 3. **Stack Management → Index Lifecycle Policies** : relevez la **rétention** avant suppression. Notez-la : elle explique la disparition des données anciennes.
 4. **Fleet → Agent policies** : vos politiques `efi-studentXX-apache` et `efi-studentXX-k8s` existent. Ouvrez la première : l'**espace de nom** de chaque intégration doit valoir `studentXX`, et la **sortie** `efi-elasticsearch`.
-5. **Fleet → Integrations** : inventoriez ce qui est **réellement** disponible — Apache HTTP Server, System, Custom Logs, Kubernetes, Apache Tomcat, PostgreSQL. Notez les versions.
+5. **Fleet → Integrations** : inventoriez ce qui est **réellement** disponible — Apache HTTP Server, System, **Custom Logs (Filestream)**, Kubernetes, Apache Tomcat, PostgreSQL. Notez les versions.
 6. **Stack Management → License Management** : relevez le niveau de licence. Il conditionne les SLO natifs et plusieurs connecteurs d'alerte (chapitre 5).
 
 > **⚠️ Piège fréquent** — Vingt candidats travaillent en même temps sur le même cluster. Tout objet que vous créez doit porter votre identifiant, sinon vous écrasez le travail de quelqu'un d'autre.

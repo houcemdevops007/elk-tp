@@ -243,7 +243,7 @@ C'est la première question, et elle se tranche avant de toucher à Fleet.
 | Voie | Quand la choisir | Ce qu'il faut savoir |
 |---|---|---|
 | **A — intégration Apache Tomcat** | Si elle existe dans votre catalogue Fleet | Parsing et dashboards prêts à l'emploi, mais périmètre à vérifier et peu adaptée aux journaux maison |
-| **B — Custom Logs + pipeline `@custom`** | Cas général, voie retenue ici | Contrôle total, fonctionne avec n'importe quel format ; vous écrivez et maintenez le parsing |
+| **B — Custom Logs (Filestream) + pipeline `@custom`** | Cas général, voie retenue ici | Contrôle total, fonctionne avec n'importe quel format ; vous écrivez et maintenez le parsing |
 
 > **⚠️ À vérifier sur votre plateforme** — Ouvrez **Fleet → Integrations** et cherchez « Tomcat ». Si l'intégration existe, utilisez-la pour les journaux standards et réservez la voie B à votre journal applicatif. Si elle n'existe pas, la voie B couvre tout. N'inventez pas la présence d'une intégration : vérifiez. <!-- À VÉRIFIER : périmètre exact de l'intégration « Apache Tomcat » en 9.5.5 (jeux de données logs et métriques) et dépendance éventuelle à Jolokia pour les métriques. -->
 
