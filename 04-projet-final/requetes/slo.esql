@@ -1,0 +1,158 @@
+# ═════════════════════════════════════════════════════════════════════════════
+#  SLO DE SHOPFLOW — {{STUDENT_ID}}
+#
+#  Trois SLO seulement, mais entièrement définis. Un SLO dont on ne sait pas
+#  dire quels événements sont ÉLIGIBLES et lesquels sont BONS n'est pas un
+#  SLO : c'est un chiffre.
+#
+#  À exécuter dans Kibana -> Dev Tools -> Console (onglet ES|QL) ou dans
+#  Discover en mode ES|QL. Chaque requête est AUTONOME.
+#
+#  Rappels d'unité : event.duration est en NANOSECONDES.
+#                    1 s = 1 000 000 000 ns.
+# ═════════════════════════════════════════════════════════════════════════════
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  SLO 1 — DISPONIBILITÉ DU TUNNEL DE COMMANDE
+#
+#  Objectif        : 99,5 % sur 7 jours
+#  Événements éligibles : les requêtes du frontal vers /api/cart et
+#                    /api/commande, hors sondes de supervision
+#  Événements bons : code de statut < 500
+#
+#  Décisions assumées, et pourquoi :
+#   - les 4xx ne comptent PAS comme des échecs : une erreur de client ou un
+#     scan externe n'est pas une défaillance de notre service ;
+#   - /health et /server-status sont exclus du NUMÉRATEUR comme du
+#     DÉNOMINATEUR : une sonde interrogée toutes les 10 secondes ferait
+#     paraître le taux d'erreur artificiellement excellent ;
+#   - le point de mesure est le FRONTAL, parce que c'est ce que l'utilisateur
+#     subit : une erreur du backend rattrapée par le frontal n'est pas un
+#     échec pour le client.
+# ─────────────────────────────────────────────────────────────────────────────
+FROM logs-kubernetes.container_logs-{{NAMESPACE}}
+| WHERE @timestamp > NOW() - 7 days
+| WHERE shopflow.tier == "web"
+| WHERE url.path LIKE "/api/cart*" OR url.path LIKE "/api/commande*"
+| WHERE NOT url.path IN ("/health", "/server-status")
+| EVAL bonne = CASE(http.response.status_code < 500, 1, 0)
+| STATS eligibles = COUNT(*), bonnes = SUM(bonne)
+| EVAL sli_pct = ROUND(bonnes * 100.0 / eligibles, 4),
+       mauvaises = eligibles - bonnes,
+       budget_total = ROUND(eligibles * 0.005, 0)
+| EVAL budget_restant = budget_total - mauvaises,
+       budget_consomme_pct = ROUND(mauvaises * 100.0 / budget_total, 1)
+| KEEP eligibles, bonnes, mauvaises, sli_pct, budget_total, budget_restant, budget_consomme_pct
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  SLO 2 — LATENCE DE L'API
+#
+#  Objectif        : 95 % des requêtes /api/ servies en moins de 1 seconde,
+#                    sur 7 jours
+#  Événements éligibles : requêtes /api/ du frontal AYANT UNE DURÉE
+#  Événements bons : durée < 1 s ET code < 500
+#
+#  Pourquoi un RATIO de requêtes rapides, et non un percentile :
+#  un percentile ne se compose pas et ne se budgète pas. « 95 % des requêtes
+#  sous 1 s » se convertit directement en budget d'erreur ; « P95 < 1 s » ne
+#  se convertit en rien.
+#
+#  Pourquoi compter aussi les erreurs comme « mauvaises » : une requête qui
+#  échoue en 30 ms est rapide, et pourtant inutilisable. Un SLO de latence
+#  qui ignore les erreurs s'améliore quand le service tombe.
+# ─────────────────────────────────────────────────────────────────────────────
+FROM logs-kubernetes.container_logs-{{NAMESPACE}}
+| WHERE @timestamp > NOW() - 7 days
+| WHERE shopflow.tier == "web"
+| WHERE url.path LIKE "/api/*"
+| WHERE NOT url.path IN ("/health", "/server-status")
+| WHERE event.duration IS NOT NULL
+| EVAL bonne = CASE(event.duration < 1000000000 AND http.response.status_code < 500, 1, 0)
+| STATS eligibles = COUNT(*), bonnes = SUM(bonne)
+| EVAL sli_pct = ROUND(bonnes * 100.0 / eligibles, 4),
+       mauvaises = eligibles - bonnes,
+       budget_total = ROUND(eligibles * 0.05, 0)
+| EVAL budget_consomme_pct = ROUND(mauvaises * 100.0 / budget_total, 1)
+| KEEP eligibles, bonnes, mauvaises, sli_pct, budget_total, budget_consomme_pct
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  CONTRÔLE QUALITÉ OBLIGATOIRE — la COUVERTURE du SLO de latence
+#
+#  Si une part importante des requêtes n'a pas de champ de durée et que vous
+#  les excluez des éligibles, votre SLI ne porte que sur une fraction du
+#  trafic et peut être très éloigné de la réalité.
+#  Un SLI dont on ne mesure pas la couverture n'est pas fiable.
+#  Seuil d'acceptation du projet : moins de 1 % de documents sans durée.
+# ─────────────────────────────────────────────────────────────────────────────
+FROM logs-kubernetes.container_logs-{{NAMESPACE}}
+| WHERE @timestamp > NOW() - 7 days
+| WHERE shopflow.tier == "web"
+| WHERE url.path LIKE "/api/*"
+| STATS total = COUNT(*), sans_duree = COUNT(*) WHERE event.duration IS NULL
+| EVAL couverture_pct = ROUND((total - sans_duree) * 100.0 / total, 2)
+| KEEP total, sans_duree, couverture_pct
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  SLO 3 — DISPONIBILITÉ DE LA BASE, VUE PAR LE BACKEND
+#
+#  Objectif        : 99,9 % sur 7 jours
+#  Événements éligibles : les appels /api/db du backend
+#  Événements bons : la base a répondu (code 200)
+#
+#  Pourquoi mesurer la base DEPUIS LE BACKEND et non depuis la base :
+#  ce qui compte n'est pas que PostgreSQL tourne, c'est que le backend
+#  arrive à s'y connecter. Réseau, DNS, pool de connexions et saturation
+#  sont dans le chemin — et une base « UP » injoignable est hors service.
+# ─────────────────────────────────────────────────────────────────────────────
+FROM logs-kubernetes.container_logs-{{NAMESPACE}}
+| WHERE @timestamp > NOW() - 7 days
+| WHERE url.path LIKE "/api/db*"
+| EVAL bonne = CASE(http.response.status_code == 200, 1, 0)
+| STATS eligibles = COUNT(*), bonnes = SUM(bonne)
+| EVAL sli_pct = ROUND(bonnes * 100.0 / eligibles, 4),
+       budget_consomme_pct = ROUND((eligibles - bonnes) * 100.0 / (eligibles * 0.001), 1)
+| KEEP eligibles, bonnes, sli_pct, budget_consomme_pct
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  SLI JOUR PAR JOUR — pour voir QUAND le budget a été consommé
+#
+#  Un budget consommé à 80 % ne dit pas la même chose s'il l'a été
+#  régulièrement ou en une seule panne de vingt minutes. La deuxième
+#  situation est préférable : elle a une cause, donc une correction.
+# ─────────────────────────────────────────────────────────────────────────────
+FROM logs-kubernetes.container_logs-{{NAMESPACE}}
+| WHERE @timestamp > NOW() - 7 days
+| WHERE shopflow.tier == "web"
+| WHERE url.path LIKE "/api/*"
+| WHERE NOT url.path IN ("/health", "/server-status")
+| EVAL jour = DATE_TRUNC(1 day, @timestamp)
+| EVAL mauvaise = CASE(http.response.status_code >= 500, 1, 0)
+| STATS eligibles = COUNT(*), mauvaises = SUM(mauvaise) BY jour
+| EVAL sli_pct = ROUND((eligibles - mauvaises) * 100.0 / eligibles, 3)
+| SORT jour ASC
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  VUE DE BOUT EN BOUT — les trois tiers sur une même ligne de temps
+#
+#  C'est la requête qui permet de dire OÙ est le problème : si les erreurs
+#  apparaissent au même instant sur les trois tiers, la cause est en aval ;
+#  si elles n'apparaissent que sur le frontal, la cause est le frontal.
+# ─────────────────────────────────────────────────────────────────────────────
+FROM logs-kubernetes.container_logs-{{NAMESPACE}}
+| WHERE @timestamp > NOW() - 1 hours
+| EVAL tier = CASE(
+    kubernetes.labels.app_kubernetes_io/component == "frontend", "1-web",
+    kubernetes.labels.app_kubernetes_io/component == "backend", "2-app",
+    kubernetes.labels.app_kubernetes_io/component == "database", "3-db",
+    "autre")
+| EVAL minute = DATE_TRUNC(1 minute, @timestamp)
+| EVAL erreur = CASE(http.response.status_code >= 500 OR log.level == "ERROR", 1, 0)
+| STATS evenements = COUNT(*), erreurs = SUM(erreur) BY minute, tier
+| SORT minute DESC, tier ASC
+| LIMIT 100

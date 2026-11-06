@@ -1,0 +1,11 @@
+{
+  "_nom": "pods-non-prets-{{STUDENT_ID}}",
+  "_niveau": "1 — impact utilisateur",
+  "_fenetre": "10 minutes",
+  "_intervalle": "2 minutes",
+  "_seuil": "au moins un pod en phase running mais NON prêt, de façon durable",
+  "_pourquoi_c_est_la_regle_la_plus_oubliee": "Running n'est PAS Ready. Un pod peut être running tout en échouant sa readiness probe : il ne reçoit alors aucun trafic du Service, mais un décompte naïf affiche « 2/2 pods en marche ». Un dashboard qui compte les pods running sans regarder ready peut annoncer que tout va bien pendant que le service est totalement indisponible.",
+  "esql": "FROM metrics-kubernetes.state_pod-{{NAMESPACE}} | WHERE @timestamp > NOW() - 10 minutes | WHERE kubernetes.namespace == \"{{NAMESPACE}}\" | WHERE kubernetes.pod.status.phase == \"running\" AND kubernetes.pod.status.ready == false | STATS mesures = COUNT(*) BY kubernetes.pod.name | WHERE mesures >= 5 | KEEP kubernetes.pod.name, mesures | SORT mesures DESC",
+  "_garde_fou": "mesures >= 5 : un pod non prêt pendant trente secondes au démarrage est normal. On exige donc plusieurs points de mesure consécutifs avant d'alerter.",
+  "_a_verifier": "Les valeurs de kubernetes.pod.status.phase peuvent être en minuscules ou en capitales selon la version de l'intégration. Relevez la valeur réelle dans Discover avant de créer la règle : une comparaison qui ne correspond à rien ne déclenche jamais, et c'est silencieux."
+}

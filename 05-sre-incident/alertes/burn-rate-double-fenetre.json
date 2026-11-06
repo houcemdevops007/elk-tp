@@ -1,0 +1,30 @@
+{
+  "_nom": "burn-rate-{{SERVICE}}-{{STUDENT_ID}}",
+  "_service": "{{SERVICE}}",
+  "_slo": "{{SLO_PCT}} % sur {{FENETRE_JOURS}} jours",
+  "_niveau": "1 — impact utilisateur, réveil justifié",
+  "_principe": "On n'alerte pas sur le fait que le budget est consommé : il est alors trop tard. On alerte sur la VITESSE de consommation.",
+  "_pourquoi_deux_fenetres": "La fenêtre LONGUE prouve que le problème est significatif ; la fenêtre COURTE prouve qu'il est TOUJOURS en cours. Exiger les deux évite deux défauts opposés : réveiller quelqu'un pour un micro-incident déjà terminé, et détecter trop tard une dégradation installée.",
+  "regle_1_fenetre_longue": {
+    "fenetre": "1 heure",
+    "intervalle": "5 minutes",
+    "seuil_burn_rate": 14.4,
+    "signification": "à ce rythme, le budget de {{FENETRE_JOURS}} jours part en 2 h 20",
+    "action": "écrire dans l'index d'alertes via le connecteur Index (gratuit)",
+    "esql": "FROM {{DATA_STREAM}} | WHERE @timestamp > NOW() - 1 hours | WHERE {{PERIMETRE}} | WHERE NOT url.path IN (\"/health\", \"/server-status\") | EVAL mauvaise = CASE(http.response.status_code >= 500, 1, 0) | STATS eligibles = COUNT(*), mauvaises = SUM(mauvaise) | EVAL burn_rate = ROUND((mauvaises * 1.0 / eligibles) / {{BUDGET_RATIO}}, 2) | WHERE eligibles >= 50 AND burn_rate > 14.4 | KEEP eligibles, mauvaises, burn_rate"
+  },
+  "regle_2_fenetre_courte": {
+    "fenetre": "5 minutes",
+    "intervalle": "1 minute",
+    "seuil_burn_rate": 14.4,
+    "signification": "le problème est encore en cours maintenant",
+    "esql": "FROM {{DATA_STREAM}} | WHERE @timestamp > NOW() - 5 minutes | WHERE {{PERIMETRE}} | WHERE NOT url.path IN (\"/health\", \"/server-status\") | EVAL mauvaise = CASE(http.response.status_code >= 500, 1, 0) | STATS eligibles = COUNT(*), mauvaises = SUM(mauvaise) | EVAL burn_rate = ROUND((mauvaises * 1.0 / eligibles) / {{BUDGET_RATIO}}, 2) | WHERE eligibles >= 20 AND burn_rate > 14.4 | KEEP eligibles, mauvaises, burn_rate"
+  },
+  "_combinaison_sans_licence": "Les règles de burn rate NATIVES de Kibana relèvent d'une licence commerciale. Voie de repli : la règle 1 écrit dans un index d'alertes avec le connecteur Index (gratuit) ; la règle 2 ajoute à sa propre condition la lecture de cet index. Les deux conditions sont alors combinées sans fonctionnalité payante, et les chiffres sont identiques.",
+  "_seuils_usuels": {
+    "14.4 sur 1 h + 5 min": "page immédiate : 2 % du budget en 1 h",
+    "6 sur 6 h + 30 min": "page : 5 % du budget en 6 h",
+    "1 sur 3 jours + 6 h": "ticket : consommation lente mais insoutenable"
+  },
+  "_garde_fou": "eligibles >= 50 (fenêtre longue) et >= 20 (courte) : un ratio calculé sur trois requêtes n'a aucun sens, et déclencherait à 4 h du matin sur une seule erreur."
+}

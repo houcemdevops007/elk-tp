@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Générateur — Chapitre 5 : SLO, error budget et burn rate</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#ffffff; --ink:#1b1f24; --muted:#5a6472; --line:#dfe3e8;
+    --accent:#1f6feb; --accent-ink:#ffffff; --ok:#0f7b4f; --warn:#8a5a00; --err:#b42318;
+    --code-bg:#f2f4f7; --code-ink:#1b1f24; --tok-com:#6a737d; --tok-str:#0a7b34;
+    --tok-key:#9a3bbd; --tok-num:#b4530a; --tok-tag:#1f6feb;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#14171c; --card:#1b1f25; --ink:#e7ebf0; --muted:#9aa5b1; --line:#2c333c;
+      --accent:#4c8dff; --accent-ink:#0c1016; --ok:#4ad295; --warn:#e0b341; --err:#ff7b72;
+      --code-bg:#11151a; --code-ink:#e7ebf0; --tok-com:#8b949e; --tok-str:#7ee2a8;
+      --tok-key:#d2a8ff; --tok-num:#ffa657; --tok-tag:#79c0ff;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:1040px;margin:0 auto;padding:18px 16px 56px}
+  h1{font-size:1.4rem;margin:.2em 0 .1em}
+  h2{font-size:1.1rem;margin:1.6em 0 .6em;padding-bottom:.3em;border-bottom:1px solid var(--line)}
+  p.sub{color:var(--muted);margin:.2em 0 1.2em}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:0 0 16px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px 16px}
+  label{display:block;font-weight:600;font-size:.86rem;margin:0 0 .25em}
+  .req{color:var(--err)}
+  input,select{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:7px;
+    background:var(--card);color:var(--ink);font:inherit;font-size:.92rem}
+  input:focus,select:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+  input[aria-invalid="true"]{border-color:var(--err);background:rgba(180,35,24,.06)}
+  .help{color:var(--muted);font-size:.78rem;margin:.3em 0 0}
+  .err{color:var(--err);font-size:.78rem;margin:.3em 0 0;font-weight:600}
+  .err:empty,.help:empty{display:none}
+  table.cst{width:100%;border-collapse:collapse;font-size:.86rem}
+  table.cst th,table.cst td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  table.cst th{color:var(--muted);font-weight:600;white-space:nowrap}
+  table.cst td code{font-size:.92em}
+  .actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px}
+  button{font:inherit;font-weight:600;border-radius:7px;border:1px solid var(--line);
+    background:var(--card);color:var(--ink);padding:8px 14px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+  button.sm{padding:4px 10px;font-size:.8rem;font-weight:600}
+  .msg{font-size:.86rem;font-weight:600}
+  .msg.ok{color:var(--ok)} .msg.bad{color:var(--err)}
+  .blk{border:1px solid var(--line);border-radius:9px;margin:0 0 14px;overflow:hidden;background:var(--card)}
+  .blk>header{display:flex;gap:8px;align-items:center;justify-content:space-between;
+    padding:8px 10px;background:var(--code-bg);border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .blk h3{margin:0;font-size:.9rem;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .blk .path{color:var(--muted);font-size:.76rem;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .blk .btns{display:flex;gap:6px}
+  pre{margin:0;padding:12px;overflow-x:auto;background:var(--code-bg);color:var(--code-ink);
+    font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;tab-size:2}
+  .tc{color:var(--tok-com);font-style:italic} .ts{color:var(--tok-str)}
+  .tk{color:var(--tok-key);font-weight:600} .tn{color:var(--tok-num)} .tg{color:var(--tok-tag)}
+  .note{border-left:4px solid var(--warn);background:rgba(224,179,65,.10);
+    border-radius:0 8px 8px 0;padding:10px 12px;font-size:.86rem;margin:0 0 16px}
+  .note.sec{border-left-color:var(--err);background:rgba(180,35,24,.08)}
+  .hidden{display:none}
+  .rec{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.82rem;
+    color:var(--muted);word-break:break-all}
+  footer{color:var(--muted);font-size:.8rem;margin-top:26px;border-top:1px solid var(--line);padding-top:10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 id="t-titre">Générateur — Chapitre 5 : SLO, error budget et burn rate</h1>
+  <p class="sub" id="t-intro"></p>
+
+  <div class="note sec">
+    <strong>Confidentialité.</strong> Cette page fonctionne entièrement dans votre navigateur :
+    aucun appel réseau, aucune donnée enregistrée, aucun cookie. Le token d'enrôlement que vous
+    saisissez n'est jamais pré-rempli et disparaît dès que vous fermez l'onglet.
+  </div>
+
+  <h2>1. Valeurs fixes de la plateforme EFI</h2>
+  <div class="card">
+    <table class="cst"><tbody id="t-cst"></tbody></table>
+  </div>
+
+  <h2>2. Paramètres de votre VM</h2>
+  <div class="card">
+    <form id="t-form" novalidate><div class="grid" id="t-fields"></div></form>
+    <div class="actions">
+      <button type="button" class="primary" id="t-gen">Générer</button>
+      <button type="button" id="t-reset">Réinitialiser</button>
+      <span class="msg" id="t-msg"></span>
+    </div>
+  </div>
+
+  <div id="t-out" class="hidden">
+    <h2>3. Fichiers et commandes générés</h2>
+    <div class="card" id="t-recap"></div>
+    <div id="t-blocks"></div>
+  </div>
+
+  <footer>
+    Khlifi Houcem — Formateur DevSecOps et Cloud · Plateforme EFILearn ·
+    Elastic Observability (version condensée). Générateur autonome, sans dépendance externe.
+  </footer>
+</div>
+
+<script>
+"use strict";
+const PAYLOAD = {
+ "chapitre": "Générateur — Chapitre 5 : SLO, error budget et burn rate",
+ "intro": "Décrivez votre SLO : la page produit les requêtes ES|QL de calcul du SLI, du budget d'erreur et du burn rate, la règle d'alerte à double fenêtre, et les deux modèles de document à remplir. Les modèles sont exactement ceux du dossier 05-sre-incident/ du tutoriel.",
+ "constants": [
+  {
+   "label": "Version de la stack",
+   "value": "9.5.5",
+   "note": "La version de l'Elastic Agent doit etre identique a celle du cluster."
+  },
+  {
+   "label": "API Elasticsearch",
+   "value": "https://172.16.3.50:9200"
+  },
+  {
+   "label": "Kibana (elk-kibana0)",
+   "value": "https://172.16.3.53:5601",
+   "note": "Acces candidat par le reverse proxy Nginx : https://elk.efi-academy.com/tp/"
+  }
+ ],
+ "fixed": {
+  "ES_VERSION": "9.5.5",
+  "ES_CLUSTER": "efi-elk-training",
+  "ES_URL": "https://172.16.3.50:9200",
+  "ES_URL1": "https://172.16.3.51:9200",
+  "ES_URL2": "https://172.16.3.52:9200",
+  "ES_IP0": "172.16.3.50",
+  "ES_IP1": "172.16.3.51",
+  "ES_IP2": "172.16.3.52",
+  "KIBANA_URL": "https://172.16.3.53:5601",
+  "KIBANA_PUBLIC": "https://elk.efi-academy.com/tp/",
+  "KIBANA_IP": "172.16.3.53",
+  "FLEET_URL": "https://172.16.3.55:8220",
+  "FLEET_IP": "172.16.3.55",
+  "LOGSTASH_BEATS": "172.16.3.54:5044",
+  "LOGSTASH_HTTP": "https://172.16.3.54:8443",
+  "LOGSTASH_IP": "172.16.3.54",
+  "MINIO_URL": "http://172.16.50.10:9000",
+  "EFI_NET": "172.16.0.0/16"
+ },
+ "fields": [
+  {
+   "key": "NUM",
+   "label": "Numéro étudiant",
+   "type": "select",
+   "required": true,
+   "options": [
+    "01",
+    "02",
+    "03",
+    "04",
+    "05",
+    "06",
+    "07",
+    "08",
+    "09",
+    "10",
+    "11",
+    "12",
+    "13",
+    "14",
+    "15",
+    "16",
+    "17",
+    "18",
+    "19",
+    "20"
+   ],
+   "default": "01",
+   "help": "Détermine votre identifiant et le namespace de vos data streams."
+  },
+  {
+   "key": "SERVICE",
+   "label": "Service couvert par le SLO",
+   "type": "text",
+   "required": true,
+   "default": "shopflow-web",
+   "pattern": "^[a-z0-9][a-z0-9_-]*$",
+   "error": "Minuscules, chiffres, tiret et souligné.",
+   "help": "Le service.name de vos documents. Un SLO porte sur UN parcours d'UN service."
+  },
+  {
+   "key": "DATA_STREAM",
+   "label": "Data stream ou motif d'index",
+   "type": "text",
+   "required": true,
+   "default": "logs-kubernetes.container_logs-student01",
+   "pattern": "^[a-z0-9][a-zA-Z0-9._*-]*$",
+   "error": "Nom de data stream invalide.",
+   "help": "Exemples : logs-shopflow_apache.access_json-studentXX pour les chapitres 1 et 2, logs-kubernetes.container_logs-studentXX pour le projet."
+  },
+  {
+   "key": "PERIMETRE",
+   "label": "Périmètre du SLO (clause ES|QL)",
+   "type": "text",
+   "required": true,
+   "default": "url.path LIKE \"/api/cart*\" OR url.path LIKE \"/api/commande*\"",
+   "help": "La définition des événements ÉLIGIBLES, c'est-à-dire du dénominateur. C'est la décision la plus importante du SLO : écrivez-la, ne la supposez pas."
+  },
+  {
+   "key": "SLO_PCT",
+   "label": "Objectif du SLO en %",
+   "type": "select",
+   "required": true,
+   "options": [
+    "99",
+    "99.5",
+    "99.9",
+    "99.95",
+    "99.99"
+   ],
+   "default": "99.5",
+   "help": "Chaque « 9 » supplémentaire coûte environ dix fois plus cher. 99,9 % autorise 43 minutes d'indisponibilité par mois ; 99,99 % en autorise 4."
+  },
+  {
+   "key": "BUDGET_RATIO",
+   "label": "Budget d'erreur (fraction)",
+   "type": "select",
+   "required": true,
+   "options": [
+    "0.01",
+    "0.005",
+    "0.001",
+    "0.0005",
+    "0.0001"
+   ],
+   "default": "0.005",
+   "help": "1 moins l'objectif, exprimé en fraction. Doit correspondre à l'objectif choisi : 99 % → 0.01 ; 99,5 % → 0.005 ; 99,9 % → 0.001 ; 99,95 % → 0.0005 ; 99,99 % → 0.0001."
+  },
+  {
+   "key": "FENETRE_JOURS",
+   "label": "Fenêtre du SLO en jours",
+   "type": "select",
+   "required": true,
+   "options": [
+    "1",
+    "7",
+    "14",
+    "28",
+    "30"
+   ],
+   "default": "7",
+   "help": "Fenêtre glissante. Attention à l'honnêteté de la mesure : annoncer un SLO sur 30 jours quand la plateforme n'en conserve que 15 est faux."
+  },
+  {
+   "key": "LATENCE_MS",
+   "label": "Seuil de latence en millisecondes",
+   "type": "text",
+   "required": true,
+   "default": "1000",
+   "pattern": "^[0-9]{2,6}$",
+   "error": "Valeur en millisecondes attendue.",
+   "help": "Le seuil du SLI de latence : « X % des requêtes servies en moins de ce temps »."
+  },
+  {
+   "key": "LATENCE_NS",
+   "label": "Le même seuil en nanosecondes",
+   "type": "text",
+   "required": true,
+   "default": "1000000000",
+   "pattern": "^[0-9]{5,15}$",
+   "error": "Valeur en nanosecondes attendue.",
+   "help": "event.duration est en NANOSECONDES : multipliez les millisecondes par 1 000 000. 1 s = 1000000000. C'est l'erreur d'échelle la plus fréquente."
+  }
+ ],
+ "derived": {
+  "STUDENT_ID": "student{{NUM}}",
+  "NAMESPACE": "student{{NUM}}"
+ },
+ "recap": [
+  "STUDENT_ID",
+  "SERVICE",
+  "DATA_STREAM",
+  "SLO_PCT",
+  "BUDGET_RATIO",
+  "FENETRE_JOURS",
+  "LATENCE_MS",
+  "LATENCE_NS"
+ ],
+ "commands": [],
+ "files": [
+  {
+   "name": "error-budget.esql",
+   "path": "6 requêtes ES|QL : SLI, budget, couverture, burn rate, consommation par jour",
+   "content": "# ═════════════════════════════════════════════════════════════════════════════\n#  SLI, ERROR BUDGET ET BURN RATE — {{STUDENT_ID}}\n#\n#  Service       : {{SERVICE}}\n#  Périmètre     : {{PERIMETRE}}\n#  Objectif      : {{SLO_PCT}} % sur {{FENETRE_JOURS}} jours\n#  Seuil latence : {{LATENCE_MS}} ms\n#\n#  Budget d'erreur = (100 - objectif) % des événements éligibles.\n#  Pour un objectif de {{SLO_PCT}} %, le budget vaut donc\n#  {{BUDGET_RATIO}} × le nombre d'événements éligibles.\n# ═════════════════════════════════════════════════════════════════════════════\n\n\n# ─────────────────────────────────────────────────────────────────────────────\n#  1. SLI DE DISPONIBILITÉ, BUDGET TOTAL, CONSOMMÉ, RESTANT\n# ─────────────────────────────────────────────────────────────────────────────\nFROM {{DATA_STREAM}}\n| WHERE @timestamp > NOW() - {{FENETRE_JOURS}} days\n| WHERE {{PERIMETRE}}\n| WHERE NOT url.path IN (\"/health\", \"/server-status\")\n| EVAL bonne = CASE(http.response.status_code < 500, 1, 0)\n| STATS eligibles = COUNT(*), bonnes = SUM(bonne)\n| EVAL mauvaises = eligibles - bonnes,\n       sli_pct = ROUND(bonnes * 100.0 / eligibles, 4),\n       budget_total = ROUND(eligibles * {{BUDGET_RATIO}}, 0)\n| EVAL budget_restant = budget_total - mauvaises,\n       budget_consomme_pct = ROUND(mauvaises * 100.0 / (eligibles * {{BUDGET_RATIO}}), 1)\n| KEEP eligibles, bonnes, mauvaises, sli_pct, budget_total, budget_restant, budget_consomme_pct\n\n\n# ─────────────────────────────────────────────────────────────────────────────\n#  2. SLI DE LATENCE — un RATIO de requêtes rapides, pas un percentile\n#\n#  Pourquoi : un percentile ne se budgète pas. « 95 % des requêtes sous\n#  {{LATENCE_MS}} ms » se convertit directement en budget d'erreur ;\n#  « P95 < {{LATENCE_MS}} ms » ne se convertit en rien.\n#\n#  Et une requête qui ÉCHOUE vite n'est pas « bonne » : sans la condition\n#  sur le code de statut, le SLI de latence s'AMÉLIORE quand le service tombe.\n# ─────────────────────────────────────────────────────────────────────────────\nFROM {{DATA_STREAM}}\n| WHERE @timestamp > NOW() - {{FENETRE_JOURS}} days\n| WHERE {{PERIMETRE}}\n| WHERE NOT url.path IN (\"/health\", \"/server-status\")\n| WHERE event.duration IS NOT NULL\n| EVAL bonne = CASE(event.duration < {{LATENCE_NS}} AND http.response.status_code < 500, 1, 0)\n| STATS eligibles = COUNT(*), bonnes = SUM(bonne)\n| EVAL sli_pct = ROUND(bonnes * 100.0 / eligibles, 4),\n       mauvaises = eligibles - bonnes\n| EVAL budget_consomme_pct = ROUND(mauvaises * 100.0 / (eligibles * {{BUDGET_RATIO}}), 1)\n| KEEP eligibles, bonnes, mauvaises, sli_pct, budget_consomme_pct\n\n\n# ─────────────────────────────────────────────────────────────────────────────\n#  3. COUVERTURE DE LA MESURE — contrôle obligatoire\n#\n#  Un SLI dont on ne mesure pas la couverture n'est pas fiable. Si une part\n#  importante des requêtes n'a pas de champ de durée et qu'on les exclut,\n#  le SLI ne porte que sur une fraction du trafic.\n# ─────────────────────────────────────────────────────────────────────────────\nFROM {{DATA_STREAM}}\n| WHERE @timestamp > NOW() - {{FENETRE_JOURS}} days\n| WHERE {{PERIMETRE}}\n| STATS total = COUNT(*), sans_duree = COUNT(*) WHERE event.duration IS NULL\n| EVAL couverture_pct = ROUND((total - sans_duree) * 100.0 / total, 2)\n| KEEP total, sans_duree, couverture_pct\n\n\n# ─────────────────────────────────────────────────────────────────────────────\n#  4. BURN RATE SUR LA FENÊTRE LONGUE (1 heure)\n#\n#  burn rate = taux d'erreur observé / budget autorisé\n#  Un burn rate de 1 consomme exactement le budget sur la fenêtre du SLO.\n#  Un burn rate de 14,4 le consomme en 2 % du temps.\n# ─────────────────────────────────────────────────────────────────────────────\nFROM {{DATA_STREAM}}\n| WHERE @timestamp > NOW() - 1 hours\n| WHERE {{PERIMETRE}}\n| WHERE NOT url.path IN (\"/health\", \"/server-status\")\n| EVAL mauvaise = CASE(http.response.status_code >= 500, 1, 0)\n| STATS eligibles = COUNT(*), mauvaises = SUM(mauvaise)\n| EVAL taux_erreur = ROUND(mauvaises * 100.0 / eligibles, 3),\n       burn_rate = ROUND((mauvaises * 1.0 / eligibles) / {{BUDGET_RATIO}}, 2)\n| EVAL verdict = CASE(burn_rate > 14.4, \"CRITIQUE - budget en 2 h 20\",\n                      burn_rate > 6.0,  \"ELEVE - budget en 6 h\",\n                      burn_rate > 1.0,  \"ATTENTION - budget epuise avant la fin de fenetre\",\n                      \"NOMINAL\")\n| KEEP eligibles, mauvaises, taux_erreur, burn_rate, verdict\n\n\n# ─────────────────────────────────────────────────────────────────────────────\n#  5. BURN RATE SUR LA FENÊTRE COURTE (5 minutes)\n#\n#  Sert UNIQUEMENT à confirmer que le problème est TOUJOURS en cours.\n#  Seule, cette fenêtre déclencherait sur le moindre micro-incident.\n# ─────────────────────────────────────────────────────────────────────────────\nFROM {{DATA_STREAM}}\n| WHERE @timestamp > NOW() - 5 minutes\n| WHERE {{PERIMETRE}}\n| WHERE NOT url.path IN (\"/health\", \"/server-status\")\n| EVAL mauvaise = CASE(http.response.status_code >= 500, 1, 0)\n| STATS eligibles = COUNT(*), mauvaises = SUM(mauvaise)\n| EVAL burn_rate = ROUND((mauvaises * 1.0 / eligibles) / {{BUDGET_RATIO}}, 2)\n| KEEP eligibles, mauvaises, burn_rate\n\n\n# ─────────────────────────────────────────────────────────────────────────────\n#  6. CONSOMMATION JOUR PAR JOUR\n#\n#  Un budget consommé à 80 % ne dit pas la même chose s'il l'a été\n#  régulièrement ou en une seule panne de vingt minutes. La deuxième\n#  situation est préférable : elle a une cause, donc une correction.\n# ─────────────────────────────────────────────────────────────────────────────\nFROM {{DATA_STREAM}}\n| WHERE @timestamp > NOW() - {{FENETRE_JOURS}} days\n| WHERE {{PERIMETRE}}\n| WHERE NOT url.path IN (\"/health\", \"/server-status\")\n| EVAL jour = DATE_TRUNC(1 day, @timestamp)\n| EVAL mauvaise = CASE(http.response.status_code >= 500, 1, 0)\n| STATS eligibles = COUNT(*), mauvaises = SUM(mauvaise) BY jour\n| EVAL sli_pct = ROUND((eligibles - mauvaises) * 100.0 / eligibles, 3),\n       budget_du_jour = ROUND(eligibles * {{BUDGET_RATIO}}, 0)\n| EVAL consomme_pct = ROUND(mauvaises * 100.0 / (eligibles * {{BUDGET_RATIO}}), 1)\n| SORT jour ASC\n",
+   "lang": "sql"
+  },
+  {
+   "name": "burn-rate-double-fenetre.json",
+   "path": "Règle d'alerte de niveau 1, à double fenêtre",
+   "content": "{\n  \"_nom\": \"burn-rate-{{SERVICE}}-{{STUDENT_ID}}\",\n  \"_service\": \"{{SERVICE}}\",\n  \"_slo\": \"{{SLO_PCT}} % sur {{FENETRE_JOURS}} jours\",\n  \"_niveau\": \"1 — impact utilisateur, réveil justifié\",\n  \"_principe\": \"On n'alerte pas sur le fait que le budget est consommé : il est alors trop tard. On alerte sur la VITESSE de consommation.\",\n  \"_pourquoi_deux_fenetres\": \"La fenêtre LONGUE prouve que le problème est significatif ; la fenêtre COURTE prouve qu'il est TOUJOURS en cours. Exiger les deux évite deux défauts opposés : réveiller quelqu'un pour un micro-incident déjà terminé, et détecter trop tard une dégradation installée.\",\n  \"regle_1_fenetre_longue\": {\n    \"fenetre\": \"1 heure\",\n    \"intervalle\": \"5 minutes\",\n    \"seuil_burn_rate\": 14.4,\n    \"signification\": \"à ce rythme, le budget de {{FENETRE_JOURS}} jours part en 2 h 20\",\n    \"action\": \"écrire dans l'index d'alertes via le connecteur Index (gratuit)\",\n    \"esql\": \"FROM {{DATA_STREAM}} | WHERE @timestamp > NOW() - 1 hours | WHERE {{PERIMETRE}} | WHERE NOT url.path IN (\\\"/health\\\", \\\"/server-status\\\") | EVAL mauvaise = CASE(http.response.status_code >= 500, 1, 0) | STATS eligibles = COUNT(*), mauvaises = SUM(mauvaise) | EVAL burn_rate = ROUND((mauvaises * 1.0 / eligibles) / {{BUDGET_RATIO}}, 2) | WHERE eligibles >= 50 AND burn_rate > 14.4 | KEEP eligibles, mauvaises, burn_rate\"\n  },\n  \"regle_2_fenetre_courte\": {\n    \"fenetre\": \"5 minutes\",\n    \"intervalle\": \"1 minute\",\n    \"seuil_burn_rate\": 14.4,\n    \"signification\": \"le problème est encore en cours maintenant\",\n    \"esql\": \"FROM {{DATA_STREAM}} | WHERE @timestamp > NOW() - 5 minutes | WHERE {{PERIMETRE}} | WHERE NOT url.path IN (\\\"/health\\\", \\\"/server-status\\\") | EVAL mauvaise = CASE(http.response.status_code >= 500, 1, 0) | STATS eligibles = COUNT(*), mauvaises = SUM(mauvaise) | EVAL burn_rate = ROUND((mauvaises * 1.0 / eligibles) / {{BUDGET_RATIO}}, 2) | WHERE eligibles >= 20 AND burn_rate > 14.4 | KEEP eligibles, mauvaises, burn_rate\"\n  },\n  \"_combinaison_sans_licence\": \"Les règles de burn rate NATIVES de Kibana relèvent d'une licence commerciale. Voie de repli : la règle 1 écrit dans un index d'alertes avec le connecteur Index (gratuit) ; la règle 2 ajoute à sa propre condition la lecture de cet index. Les deux conditions sont alors combinées sans fonctionnalité payante, et les chiffres sont identiques.\",\n  \"_seuils_usuels\": {\n    \"14.4 sur 1 h + 5 min\": \"page immédiate : 2 % du budget en 1 h\",\n    \"6 sur 6 h + 30 min\": \"page : 5 % du budget en 6 h\",\n    \"1 sur 3 jours + 6 h\": \"ticket : consommation lente mais insoutenable\"\n  },\n  \"_garde_fou\": \"eligibles >= 50 (fenêtre longue) et >= 20 (courte) : un ratio calculé sur trois requêtes n'a aucun sens, et déclencherait à 4 h du matin sur une seule erreur.\"\n}\n",
+   "lang": "json"
+  },
+  {
+   "name": "fiche-slo.md",
+   "path": "Modèle à remplir — une page par SLO",
+   "content": "# Fiche de spécification d'un SLO — {{SERVICE}} ({{STUDENT_ID}})\n\nUne page. Si elle ne tient pas sur une page, le SLO est trop compliqué pour\nêtre tenu.\n\n## 1. Identité\n\n| Rubrique | Valeur |\n|---|---|\n| Service | {{SERVICE}} |\n| Parcours couvert | {{PERIMETRE}} |\n| Type de SLI | disponibilité / latence / fraîcheur / exactitude *(rayer)* |\n| Objectif (SLO) | {{SLO_PCT}} % |\n| Fenêtre | {{FENETRE_JOURS}} jours, glissante |\n| Propriétaire | *(une personne nommée, pas une équipe)* |\n| Date de la dernière revue | *(à mettre à jour à chaque revue)* |\n\n## 2. Définition de la mesure\n\n| Rubrique | Définition exacte |\n|---|---|\n| Source de données | {{DATA_STREAM}} |\n| Événements **éligibles** (dénominateur) | *(requête complète)* |\n| Événements **bons** (numérateur) | *(requête complète)* |\n| Point de mesure | frontal / backend / client *(rayer et justifier)* |\n\n## 3. Les cinq décisions, tranchées et justifiées\n\n| Décision | Choix | Justification en une phrase |\n|---|---|---|\n| Les 4xx comptent-elles comme des échecs ? | | |\n| Les sondes de supervision sont-elles dans le dénominateur ? | | |\n| Quel est le point de mesure ? | | |\n| Que fait-on des événements sans champ de durée ? | | |\n| Un échec rapide est-il « bon » pour le SLI de latence ? | | |\n\n## 4. Budget d'erreur\n\n| Rubrique | Valeur mesurée |\n|---|---|\n| Événements éligibles sur la fenêtre | |\n| Budget total (en événements) | |\n| Budget consommé (en événements et en %) | |\n| Budget restant | |\n| Burn rate instantané (1 h) | |\n\n## 5. Fiabilité de la mesure\n\n| Rubrique | Valeur |\n|---|---|\n| Couverture (part du trafic réellement mesurée) | **…** % |\n| Documents en erreur de parsing | *(doit valoir 0)* |\n| Limites connues de la mesure | |\n\n## 6. Politique de décision\n\n| Budget restant | Décision |\n|---|---|\n| > 50 % | Fonctionnement normal : on livre |\n| 10 à 50 % | Vigilance : on privilégie les correctifs de fiabilité |\n| < 10 % | **Gel des déploiements** de fonctionnalités |\n| épuisé | Gel, et revue obligatoire avant reprise |\n\n| Rubrique | Valeur |\n|---|---|\n| Qui décide du gel ? | |\n| Qu'est-ce qui est gelé exactement ? | |\n| Comment en sort-on ? | |\n",
+   "lang": "text"
+  },
+  {
+   "name": "rapport-incident.md",
+   "path": "Modèle de postmortem en huit sections",
+   "content": "# Rapport d'incident — *(titre factuel, sans nom de personne)*\n\n> Modèle en huit sections. Deux pages maximum. Un rapport plus long n'est pas\n> lu, donc ne sert à rien.\n\n## 1. Résumé\n\nTrois phrases maximum : ce qui s'est passé, pour qui, pendant combien de temps.\n\n## 2. Impact — entièrement chiffré\n\n| Mesure | Valeur | Méthode de calcul |\n|---|---|---|\n| Durée de l'incident (début réel → rétablissement) | | |\n| Requêtes affectées | | |\n| Utilisateurs ou sessions concernés | | |\n| Commandes perdues (estimation) | | |\n| Budget d'erreur consommé | | |\n\nAucune formulation qualitative : « beaucoup d'utilisateurs » n'est pas un\nimpact, c'est une impression.\n\n## 3. Chronologie — à la minute\n\n| Heure (UTC) | Événement |\n|---|---|\n| | **Début réel** *(reconstitué depuis les données, pas depuis la mémoire)* |\n| | Première alerte déclenchée → **MTTD** = … |\n| | Prise en charge |\n| | Hypothèse 1 formulée / écartée par *(la donnée)* |\n| | Hypothèse 2 formulée / écartée par *(la donnée)* |\n| | Cause racine identifiée |\n| | Correction appliquée |\n| | **Rétablissement confirmé par la donnée** → **MTTR** = … |\n\n## 4. Cause racine\n\nLe **mécanisme**, en une phrase, avec sa preuve (requête, capture, métrique).\n\nPuis la question qui compte autant : **pourquoi n'a-t-on pas détecté plus\ntôt ?** Elle porte sur le dispositif d'observabilité, pas sur l'incident.\n\n## 5. Ce qui a bien fonctionné\n\nAu moins un élément. Un postmortem qui n'en contient aucun n'est pas un\npostmortem, c'est un procès.\n\n## 6. Ce qui a manqué\n\nDonnées absentes, alertes qui n'ont pas sonné, dashboard trompeur,\nprocédure introuvable.\n\n## 7. Actions — six minimum, sur trois familles\n\n| Famille | Action | Propriétaire | Date |\n|---|---|---|---|\n| **Correction** (empêcher la cause de se reproduire) | | | |\n| **Correction** | | | |\n| **Détection** (voir plus tôt la prochaine fois) | | | |\n| **Détection** | | | |\n| **Prévention** (réduire l'impact si cela se reproduit) | | | |\n| **Prévention** | | | |\n\nUne action sans propriétaire nommé et sans date n'est pas une action :\nc'est un vœu.\n\n## 8. Gravité retenue et justification\n\n| Niveau | Justification sur l'impact utilisateur |\n|---|---|\n| SEV… | |\n\n---\n\n**Règle de rédaction** : ce rapport ne désigne **aucune personne**, même\nimplicitement. On y parle de mécanismes, de données et de dispositifs. Une\norganisation qui cherche un responsable n'apprend rien ; une organisation\nqui cherche un mécanisme corrige la cause.\n",
+   "lang": "text"
+  }
+ ]
+};
+
+/* ---------- utilitaires ---------- */
+const $  = (s, r) => (r || document).querySelector(s);
+const el = (t, a, txt) => { const n = document.createElement(t);
+  if (a) for (const k in a) n.setAttribute(k, a[k]);
+  if (txt != null) n.textContent = txt; return n; };
+const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+/* ---------- substitution des placeholders ---------- */
+/* Une valeur saisie peut contenir des guillemets (par exemple une clause
+   ES|QL). Injectée telle quelle dans un fichier JSON, elle casserait le
+   document : on échappe donc selon le format du fichier cible. */
+function echappeJson(v) {
+  return String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"')
+    .replace(/\n/g, "\\n").replace(/\r/g, "\\r").replace(/\t/g, "\\t");
+}
+function substitue(texte, vals, format) {
+  return String(texte).replace(/\{\{([A-Z0-9_]+)\}\}/g, (m, k) => {
+    if (!Object.prototype.hasOwnProperty.call(vals, k)) return m;
+    return format === "json" ? echappeJson(vals[k]) : vals[k];
+  });
+}
+/* Les valeurs dérivées peuvent dépendre les unes des autres : on résout par passes. */
+function resout(vals, derived) {
+  const out = Object.assign({}, vals);
+  for (let passe = 0; passe < 6; passe++) {
+    let change = false;
+    for (const k in derived) {
+      const v = substitue(derived[k], out);
+      if (out[k] !== v) { out[k] = v; change = true; }
+    }
+    if (!change) break;
+  }
+  return out;
+}
+
+/* ---------- coloration simple ---------- */
+const COMMENT = { bash:/^\s*#/, yaml:/^\s*#/, properties:/^\s*[#!]/, apache:/^\s*#/,
+                  sql:/^\s*(#|\/\/|--)/, java:/^\s*(\/\/|\*|\/\*)/, xml:null, json:null, text:null };
+const MOTS = {
+  bash:/\b(if|then|else|elif|fi|for|while|do|done|case|esac|in|function|return|local|export|set|echo|exit|sudo|curl|systemctl|kubectl|cd|sleep|source)\b/g,
+  yaml:/^(\s*(?:-\s+)?)([A-Za-z0-9_.\/-]+)(:)/gm,
+  apache:/^(\s*)(&lt;\/?[A-Za-z]+|[A-Z][A-Za-z]+)\b/gm,
+  sql:/\b(FROM|WHERE|EVAL|STATS|KEEP|SORT|LIMIT|BY|AND|OR|NOT|CASE|COUNT|SUM|ROUND|NOW|IS|NULL|LIKE|IN|DATE_TRUNC|PERCENTILE|DROP|RENAME)\b/g,
+  java:/\b(public|private|static|final|class|void|new|return|if|else|for|while|try|catch|throw|throws|import|package|int|long|String|boolean)\b/g
+};
+function colorise(code, lang) {
+  const cl = COMMENT[lang];
+  const lignes = esc(code).split("\n").map(l => {
+    if (cl && cl.test(l)) return '<span class="tc">' + l + "</span>";
+    let o = l;
+    o = o.replace(/("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/g, '<span class="ts">$1</span>');
+    if (lang === "json")  o = o.replace(/\b(true|false|null)\b/g, '<span class="tk">$1</span>');
+    if (lang === "xml")   o = o.replace(/(&lt;\/?[A-Za-z!?][\w:.-]*)/g, '<span class="tg">$1</span>');
+    if (lang === "yaml")  o = o.replace(MOTS.yaml, '$1<span class="tg">$2</span>$3');
+    if (lang === "apache")o = o.replace(MOTS.apache, '$1<span class="tg">$2</span>');
+    if (MOTS[lang] && lang !== "yaml" && lang !== "apache") o = o.replace(MOTS[lang], '<span class="tk">$1</span>');
+    o = o.replace(/(^|[\s:=(,[])(\d+(?:\.\d+)?)\b/g, '$1<span class="tn">$2</span>');
+    return o;
+  });
+  return lignes.join("\n");
+}
+
+/* ---------- copier / télécharger ---------- */
+function copier(texte, btn) {
+  const fini = ok => { const av = btn.textContent;
+    btn.textContent = ok ? "Copié ✓" : "Échec"; setTimeout(() => { btn.textContent = av; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(texte).then(() => fini(true), () => fini(secours(texte)));
+  } else { fini(secours(texte)); }
+}
+function secours(texte) {                       /* presse-papier indisponible (iframe, http) */
+  const ta = el("textarea"); ta.value = texte;
+  ta.setAttribute("style", "position:fixed;top:-1000px;left:0;opacity:0");
+  document.body.appendChild(ta); ta.select();
+  let ok = false; try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+  document.body.removeChild(ta); return ok;
+}
+function telecharger(nom, texte, btn) {
+  try {
+    const b = new Blob([texte], { type: "text/plain;charset=utf-8" });
+    const u = URL.createObjectURL(b);
+    const a = el("a", { href: u, download: nom });
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(u), 4000);
+  } catch (e) {
+    btn.textContent = "Bloqué — utilisez Copier";
+    setTimeout(() => { btn.textContent = "Télécharger"; }, 2600);
+  }
+}
+
+/* ---------- construction du formulaire ---------- */
+function champs() {
+  const hote = $("#t-fields");
+  PAYLOAD.fields.forEach(f => {
+    const box = el("div");
+    const lab = el("label", { for: "f-" + f.key }, f.label);
+    if (f.required) lab.appendChild(el("span", { class: "req" }, " *"));
+    box.appendChild(lab);
+    let inp;
+    if (f.type === "select") {
+      inp = el("select", { id: "f-" + f.key });
+      (f.options || []).forEach(o => inp.appendChild(el("option", { value: o }, o)));
+      if (f.default) inp.value = f.default;
+    } else {
+      inp = el("input", { id: "f-" + f.key, type: f.type === "password" ? "password" : "text",
+        value: f.default || "", placeholder: f.placeholder || "", autocomplete: "off",
+        spellcheck: "false" });
+    }
+    inp.dataset.key = f.key;
+    box.appendChild(inp);
+    if (f.help) box.appendChild(el("p", { class: "help" }, f.help));
+    box.appendChild(el("p", { class: "err", id: "e-" + f.key }));
+    hote.appendChild(box);
+  });
+}
+function constantes() {
+  const tb = $("#t-cst");
+  PAYLOAD.constants.forEach(c => {
+    const tr = el("tr");
+    tr.appendChild(el("th", null, c.label));
+    const td = el("td"); td.appendChild(el("code", null, c.value));
+    if (c.note) { td.appendChild(document.createElement("br"));
+      td.appendChild(el("span", { class: "help" }, c.note)); }
+    tr.appendChild(td); tb.appendChild(tr);
+  });
+}
+
+/* ---------- validation ---------- */
+function valide() {
+  let ok = true; const vals = {};
+  PAYLOAD.fields.forEach(f => {
+    const inp = $("#f-" + f.key), zone = $("#e-" + f.key);
+    const v = (inp.value || "").trim();
+    let msg = "";
+    if (f.required && !v) msg = "Champ obligatoire.";
+    else if (v && f.pattern && !new RegExp(f.pattern).test(v)) msg = f.error || "Format invalide.";
+    zone.textContent = msg;
+    inp.setAttribute("aria-invalid", msg ? "true" : "false");
+    if (msg) ok = false;
+    vals[f.key] = v;
+  });
+  return ok ? vals : null;
+}
+
+/* ---------- rendu ---------- */
+function bloc(titre, chemin, contenu, lang) {
+  const b = el("div", { class: "blk" });
+  const h = el("header");
+  const g = el("div");
+  g.appendChild(el("h3", null, titre));
+  if (chemin) g.appendChild(el("div", { class: "path" }, chemin));
+  h.appendChild(g);
+  const btns = el("div", { class: "btns" });
+  const bc = el("button", { type: "button", class: "sm" }, "Copier");
+  bc.addEventListener("click", () => copier(contenu, bc));
+  const bt = el("button", { type: "button", class: "sm" }, "Télécharger");
+  bt.addEventListener("click", () => telecharger(titre, contenu, bt));
+  btns.appendChild(bc); btns.appendChild(bt);
+  h.appendChild(btns); b.appendChild(h);
+  const pre = el("pre"); pre.innerHTML = colorise(contenu, lang || "text");
+  b.appendChild(pre); return b;
+}
+function genere() {
+  const brut = valide();
+  const msg = $("#t-msg");
+  if (!brut) { msg.className = "msg bad";
+    msg.textContent = "Corrigez les champs signalés avant de générer."; return; }
+  const vals = resout(Object.assign({}, PAYLOAD.fixed, brut), PAYLOAD.derived);
+
+  const recap = $("#t-recap"); recap.textContent = "";
+  recap.appendChild(el("strong", null, "Valeurs appliquées"));
+  const ul = el("div", { class: "rec" });
+  (PAYLOAD.recap || []).forEach(k => {
+    if (vals[k] != null && vals[k] !== "") ul.appendChild(el("div", null, k + " = " + vals[k]));
+  });
+  recap.appendChild(ul);
+
+  const zone = $("#t-blocks"); zone.textContent = "";
+  (PAYLOAD.commands || []).forEach(c =>
+    zone.appendChild(bloc(c.name, c.title || "",
+      substitue(c.content, vals, c.lang), c.lang)));
+  (PAYLOAD.files || []).forEach(f =>
+    zone.appendChild(bloc(f.name, substitue(f.path || "", vals),
+      substitue(f.content, vals, f.lang), f.lang)));
+
+  $("#t-out").classList.remove("hidden");
+  msg.className = "msg ok";
+  msg.textContent = (PAYLOAD.files || []).length + " fichier(s) et " +
+                    (PAYLOAD.commands || []).length + " bloc(s) de commandes générés.";
+  /* scrollIntoView n'existe pas dans tous les contextes d'intégration
+     (certaines iframes restreintes) : on ne tombe pas pour autant. */
+  const sortie = $("#t-out");
+  if (typeof sortie.scrollIntoView === "function") {
+    sortie.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
+/* ---------- démarrage ---------- */
+$("#t-titre").textContent = PAYLOAD.chapitre;
+document.title = PAYLOAD.chapitre;
+$("#t-intro").textContent = PAYLOAD.intro || "";
+constantes(); champs();
+$("#t-gen").addEventListener("click", genere);
+$("#t-reset").addEventListener("click", () => {
+  $("#t-form").reset();
+  PAYLOAD.fields.forEach(f => { $("#e-" + f.key).textContent = "";
+    $("#f-" + f.key).setAttribute("aria-invalid", "false"); });
+  $("#t-out").classList.add("hidden"); $("#t-msg").textContent = "";
+});
+$("#t-form").addEventListener("submit", e => { e.preventDefault(); genere(); });
+$("#t-form").addEventListener("keydown", e => {
+  if (e.key === "Enter" && e.target.tagName !== "TEXTAREA") { e.preventDefault(); genere(); }
+});
+</script>
+</body>
+</html>

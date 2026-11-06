@@ -1,0 +1,12 @@
+{
+  "_nom": "pic-trafic-apache-{{STUDENT_ID}}",
+  "_niveau": "2 — symptôme proche de l'impact",
+  "_type_de_regle": "Elasticsearch query (variante ES|QL)",
+  "_fenetre": "5 minutes",
+  "_intervalle": "1 minute",
+  "_condition": "au moins une ligne retournée",
+  "_seuil": "plus de 1 500 requêtes sur 5 minutes (soit environ 5 req/s)",
+  "_calibrage": "OBLIGATOIRE avant activation : relevez votre trafic nominal sur 7 jours (min / médiane / max par tranche de 5 minutes) et posez le seuil au-dessus du maximum observé. Le 1 500 ci-dessous est la valeur mesurée en TP après `ab -n 1000 -c 50`, pas une vérité.",
+  "esql": "FROM logs-shopflow_apache.access_json-{{NAMESPACE}} | WHERE @timestamp > NOW() - 5 minutes | WHERE NOT url.path IN (\"/health\", \"/server-status\") | STATS requetes = COUNT(*) | WHERE requetes > 1500 | KEEP requetes",
+  "_note": "Un pic de trafic n'est pas un incident en soi : cette règle sert à expliquer une dégradation de latence, pas à réveiller quelqu'un. Action attendue : ticket, et vérification de la réserve de workers."
+}

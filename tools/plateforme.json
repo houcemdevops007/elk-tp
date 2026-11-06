@@ -1,0 +1,38 @@
+{
+  "_commentaire": "Valeurs fixes de la plateforme EFI. Source de verite unique : lues par build-generateurs.py et injectees dans les cinq generateurs HTML.",
+  "fixed": {
+    "ES_VERSION": "9.5.5",
+    "ES_CLUSTER": "efi-elk-training",
+    "ES_URL": "https://172.16.3.50:9200",
+    "ES_URL1": "https://172.16.3.51:9200",
+    "ES_URL2": "https://172.16.3.52:9200",
+    "ES_IP0": "172.16.3.50",
+    "ES_IP1": "172.16.3.51",
+    "ES_IP2": "172.16.3.52",
+    "KIBANA_URL": "https://172.16.3.53:5601",
+    "KIBANA_PUBLIC": "https://elk.efi-academy.com/tp/",
+    "KIBANA_IP": "172.16.3.53",
+    "FLEET_URL": "https://172.16.3.55:8220",
+    "FLEET_IP": "172.16.3.55",
+    "LOGSTASH_BEATS": "172.16.3.54:5044",
+    "LOGSTASH_HTTP": "https://172.16.3.54:8443",
+    "LOGSTASH_IP": "172.16.3.54",
+    "MINIO_URL": "http://172.16.50.10:9000",
+    "EFI_NET": "172.16.0.0/16"
+  },
+  "constants": {
+    "version": { "label": "Version de la stack", "value": "9.5.5",
+      "note": "La version de l'Elastic Agent doit etre identique a celle du cluster." },
+    "cluster": { "label": "Cluster Elasticsearch", "value": "efi-elk-training",
+      "note": "elk-es0 172.16.3.50 / elk-es1 172.16.3.51 / elk-es2 172.16.3.52 (master + data, :9200 / :9300)" },
+    "es": { "label": "API Elasticsearch", "value": "https://172.16.3.50:9200" },
+    "kibana": { "label": "Kibana (elk-kibana0)", "value": "https://172.16.3.53:5601",
+      "note": "Acces candidat par le reverse proxy Nginx : https://elk.efi-academy.com/tp/" },
+    "fleet": { "label": "Fleet Server (elk-fleet0)", "value": "https://172.16.3.55:8220",
+      "note": "Plan de controle : enrolement, politiques, etat des agents." },
+    "logstash": { "label": "Logstash (elk-logstash0)", "value": "172.16.3.54:5044 (Beats mTLS) / :8443 (HTTP)",
+      "note": "Utilise uniquement quand une transformation lourde le justifie." },
+    "minio": { "label": "Sauvegardes SLM", "value": "http://172.16.50.10:9000",
+      "note": "Snapshots quotidiens a 01:30 UTC, retention 14 jours. Operation formateur." }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "_nom": "deploiement-echec-{{STUDENT_ID}}",
+  "_niveau": "2 — symptôme, et surtout ÉVÉNEMENT de contexte",
+  "_fenetre": "10 minutes",
+  "_intervalle": "2 minutes",
+  "_condition": "au moins une occurrence",
+  "_pourquoi": "Un déploiement est un événement. Toute dégradation qui commence à la minute d'un déploiement a une cause très probable : ce déploiement. Journaliser et alerter sur les déploiements — réussis comme échoués — fait gagner un temps considérable en incident.",
+  "_action": "Alerte vers l'équipe qui déploie, pas vers l'astreinte : l'échec de déploiement d'une application ne signifie pas que le service est tombé. Le script de scénario du chapitre démontre précisément cela.",
+  "esql": "FROM logs-shopflow_tomcat.catalina-{{NAMESPACE}} | WHERE @timestamp > NOW() - 10 minutes | WHERE message LIKE \"*Parse error in application web.xml*\" OR message LIKE \"*Error deploying web application*\" OR message LIKE \"*FAIL - Deployed application*\" | STATS echecs = COUNT(*) | WHERE echecs > 0 | KEEP echecs",
+  "_variante_informative": {
+    "_but": "Tracer TOUS les déploiements, réussis compris, dans un index dédié — pour les superposer aux courbes de latence.",
+    "esql": "FROM logs-shopflow_tomcat.catalina-{{NAMESPACE}} | WHERE @timestamp > NOW() - 10 minutes | WHERE message LIKE \"*Deployment of web application*has finished*\" | STATS deploiements = COUNT(*) | WHERE deploiements > 0 | KEEP deploiements"
+  }
+}

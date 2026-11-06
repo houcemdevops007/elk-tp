@@ -1,0 +1,20 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  /etc/logrotate.d/tomcat — rotation de catalina.out ({{STUDENT_ID}})
+#
+#  catalina.out n'est PAS rotaté par Tomcat : c'est une simple redirection de
+#  la sortie standard. Sur un serveur oublié, ce fichier atteint couramment
+#  plusieurs gigaoctets et finit par remplir le disque.
+#
+#  copytruncate est OBLIGATOIRE ici : le processus Java garde le descripteur
+#  de fichier ouvert et n'en rouvrirait pas un nouveau après un renommage.
+# ─────────────────────────────────────────────────────────────────────────────
+{{CATALINA_LOGS}}/catalina.out {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+    create 640 {{TOMCAT_USER}} {{TOMCAT_USER}}
+}

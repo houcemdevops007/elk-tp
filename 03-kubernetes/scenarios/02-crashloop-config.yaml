@@ -1,0 +1,63 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  PANNE 2 — CrashLoopBackOff par erreur de CONFIGURATION ({{STUDENT_ID}})
+#
+#  Le conteneur démarre, constate qu'une variable obligatoire est absente,
+#  journalise l'erreur et sort en code 1. Kubernetes le relance, avec un
+#  délai croissant : c'est le « BackOff ».
+#
+#  Diagnostic attendu :
+#    kubectl -n {{NAMESPACE}} get pods                  -> CrashLoopBackOff
+#    kubectl -n {{NAMESPACE}} logs <pod> --previous     -> le message d'erreur
+#    kubectl -n {{NAMESPACE}} describe pod <pod>        -> Exit Code: 1, Reason: Error
+#
+#  Dans Kibana, l'historique survit à la disparition des pods, ce que
+#  --previous ne garantit pas : il ne remonte qu'UNE génération.
+#
+#  Correction : décommenter la variable DB_PASSWORD (en pratique, elle
+#  viendrait d'un Secret, jamais d'une valeur en clair).
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: panne-config
+  namespace: "{{NAMESPACE}}"
+  labels:
+    app.kubernetes.io/name: panne-config
+    efi.formation/scenario: "02-crashloop-config"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: panne-config
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: panne-config
+        efi.formation/scenario: "02-crashloop-config"
+    spec:
+      containers:
+        - name: worker
+          image: "{{DEMO_IMAGE}}"
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              if [ -z "${DB_PASSWORD}" ]; then
+                echo "{\"@timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\",\"log.level\":\"ERROR\",\"service.name\":\"shopflow-worker\",\"message\":\"variable obligatoire absente: DB_PASSWORD\"}" >&2
+                exit 1
+              fi
+              echo "demarrage nominal" ; sleep 3600
+          env:
+            # - name: DB_PASSWORD
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: shopflow-db
+            #       key: password
+            - name: LOG_LEVEL
+              value: "INFO"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi

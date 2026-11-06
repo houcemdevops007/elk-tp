@@ -1,0 +1,69 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  PANNE 3 — CrashLoopBackOff fabriqué par une SONDE ({{STUDENT_ID}})
+#
+#  L'application est SAINE : elle met simplement 40 secondes à démarrer.
+#  La liveness probe la déclare morte au bout de 2 secondes, Kubernetes la
+#  tue, elle redémarre, et le cycle se répète indéfiniment.
+#
+#  C'est la panne la plus instructive du chapitre : l'application n'a
+#  AUCUN problème, c'est la supervision qui la tue.
+#
+#  Comment la distinguer de la panne 2, sans connaître la cause :
+#    - panne 2 : Exit Code 1, et des LOGS d'erreur applicatifs ;
+#    - panne 3 : Exit Code 137 (SIGKILL), AUCUN log d'erreur, et un event
+#      « Liveness probe failed » avant le « Killing ».
+#
+#  Correction : une startupProbe (bloc commenté), qui laisse le temps du
+#  démarrage sans relâcher la surveillance ensuite.
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: panne-probe
+  namespace: "{{NAMESPACE}}"
+  labels:
+    app.kubernetes.io/name: panne-probe
+    efi.formation/scenario: "03-crashloop-probe"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: panne-probe
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: panne-probe
+        efi.formation/scenario: "03-crashloop-probe"
+    spec:
+      containers:
+        - name: worker
+          image: "{{DEMO_IMAGE}}"
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "demarrage long en cours (40 s)..."
+              sleep 40
+              touch /tmp/pret
+              echo "application prete"
+              while true; do sleep 10; done
+          livenessProbe:
+            exec:
+              command: ["/bin/sh", "-c", "test -f /tmp/pret"]
+            # VOLONTAIREMENT trop agressive : 2 s d'attente pour un
+            # démarrage de 40 s.
+            initialDelaySeconds: 2
+            periodSeconds: 5
+            failureThreshold: 1
+          # ─── CORRECTION : décommenter ce bloc ───
+          # startupProbe:
+          #   exec:
+          #     command: ["/bin/sh", "-c", "test -f /tmp/pret"]
+          #   periodSeconds: 5
+          #   failureThreshold: 12     # 60 s au total pour démarrer
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi

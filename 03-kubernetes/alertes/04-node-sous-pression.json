@@ -1,0 +1,16 @@
+{
+  "_nom": "node-sous-pression-{{STUDENT_ID}}",
+  "_niveau": "3 — saturation de ressource",
+  "_fenetre": "10 minutes",
+  "_intervalle": "5 minutes",
+  "_condition": "un nœud non prêt, ou sous pression mémoire ou disque",
+  "_consequence_si_ignoree": "MemoryPressure et DiskPressure provoquent l'ÉVICTION des pods, en commençant par les BestEffort (ceux qui n'ont ni requests ni limits). DiskPressure fait en plus échouer les téléchargements d'images : vos déploiements se mettent à échouer sans raison apparente.",
+  "esql": "FROM metrics-kubernetes.state_node-{{NAMESPACE}} | WHERE @timestamp > NOW() - 10 minutes | WHERE kubernetes.node.status.ready == false OR kubernetes.node.status.memory_pressure == true OR kubernetes.node.status.disk_pressure == true | STATS mesures = COUNT(*) BY kubernetes.node.name | WHERE mesures >= 2 | KEEP kubernetes.node.name, mesures",
+  "_variante_throttling": {
+    "_nom": "throttling-cpu-{{STUDENT_ID}}",
+    "_niveau": "3 — la dégradation SILENCIEUSE",
+    "_pourquoi": "Aucune erreur, aucun redémarrage, pod Ready : seule la latence se dégrade. C'est le diagnostic le plus souvent manqué, et la seule façon de le détecter automatiquement est cette règle.",
+    "esql": "FROM metrics-kubernetes.container-{{NAMESPACE}} | WHERE @timestamp > NOW() - 15 minutes | WHERE kubernetes.namespace == \"{{NAMESPACE}}\" | STATS pct = AVG(kubernetes.container.cpu.usage.limit.pct) BY kubernetes.pod.name | WHERE pct > 0.95 | EVAL pct = ROUND(pct * 100, 1) | KEEP kubernetes.pod.name, pct",
+    "_a_verifier": "Le champ kubernetes.container.cpu.usage.limit.pct n'existe pas sous un nom stable dans toutes les versions de l'intégration. Si vous ne le trouvez pas dans Discover, repli : comparer cpu.usage.nanocores à cpu.limit.cores (voir les formules du chapitre)."
+  }
+}

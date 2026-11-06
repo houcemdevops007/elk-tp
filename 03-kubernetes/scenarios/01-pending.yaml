@@ -1,0 +1,51 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  PANNE 1 — Pod Pending ({{STUDENT_ID}})
+#
+#  Ici : un nodeSelector qui ne correspond à AUCUN nœud. Le pod existe,
+#  il est valide, mais aucun nœud ne peut l'accueillir.
+#
+#  Diagnostic attendu :
+#    kubectl -n {{NAMESPACE}} get pods            -> Pending
+#    kubectl -n {{NAMESPACE}} describe pod ...    -> FailedScheduling
+#    message : « didn't match Pod's node affinity/selector »
+#
+#  Deux variantes à essayer ensuite (même PHASE, message DIFFÉRENT — c'est
+#  le message de l'event qui donne la cause, pas la phase) :
+#    a) requests.memory: 64Gi  -> « exceeded quota » (le ResourceQuota
+#       du namespace refuse AVANT même l'ordonnancement)
+#    b) requests.memory à peine sous le quota mais au-dessus de
+#       l'allocatable du nœud -> « Insufficient memory »
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: panne-pending
+  namespace: "{{NAMESPACE}}"
+  labels:
+    app.kubernetes.io/name: panne-pending
+    efi.formation/scenario: "01-pending"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: panne-pending
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: panne-pending
+        efi.formation/scenario: "01-pending"
+    spec:
+      nodeSelector:
+        # Aucun nœud ne porte ce label : le pod restera Pending.
+        efi.formation/disque: ssd-inexistant
+      containers:
+        - name: worker
+          image: "{{DEMO_IMAGE}}"
+          command: ["/bin/sh", "-c", "sleep 3600"]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi

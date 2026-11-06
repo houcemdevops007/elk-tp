@@ -1,0 +1,698 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Générateur — Chapitre 2 : Tomcat, JVM et pannes mémoire</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#ffffff; --ink:#1b1f24; --muted:#5a6472; --line:#dfe3e8;
+    --accent:#1f6feb; --accent-ink:#ffffff; --ok:#0f7b4f; --warn:#8a5a00; --err:#b42318;
+    --code-bg:#f2f4f7; --code-ink:#1b1f24; --tok-com:#6a737d; --tok-str:#0a7b34;
+    --tok-key:#9a3bbd; --tok-num:#b4530a; --tok-tag:#1f6feb;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#14171c; --card:#1b1f25; --ink:#e7ebf0; --muted:#9aa5b1; --line:#2c333c;
+      --accent:#4c8dff; --accent-ink:#0c1016; --ok:#4ad295; --warn:#e0b341; --err:#ff7b72;
+      --code-bg:#11151a; --code-ink:#e7ebf0; --tok-com:#8b949e; --tok-str:#7ee2a8;
+      --tok-key:#d2a8ff; --tok-num:#ffa657; --tok-tag:#79c0ff;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:1040px;margin:0 auto;padding:18px 16px 56px}
+  h1{font-size:1.4rem;margin:.2em 0 .1em}
+  h2{font-size:1.1rem;margin:1.6em 0 .6em;padding-bottom:.3em;border-bottom:1px solid var(--line)}
+  p.sub{color:var(--muted);margin:.2em 0 1.2em}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:0 0 16px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px 16px}
+  label{display:block;font-weight:600;font-size:.86rem;margin:0 0 .25em}
+  .req{color:var(--err)}
+  input,select{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:7px;
+    background:var(--card);color:var(--ink);font:inherit;font-size:.92rem}
+  input:focus,select:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+  input[aria-invalid="true"]{border-color:var(--err);background:rgba(180,35,24,.06)}
+  .help{color:var(--muted);font-size:.78rem;margin:.3em 0 0}
+  .err{color:var(--err);font-size:.78rem;margin:.3em 0 0;font-weight:600}
+  .err:empty,.help:empty{display:none}
+  table.cst{width:100%;border-collapse:collapse;font-size:.86rem}
+  table.cst th,table.cst td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  table.cst th{color:var(--muted);font-weight:600;white-space:nowrap}
+  table.cst td code{font-size:.92em}
+  .actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px}
+  button{font:inherit;font-weight:600;border-radius:7px;border:1px solid var(--line);
+    background:var(--card);color:var(--ink);padding:8px 14px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+  button.sm{padding:4px 10px;font-size:.8rem;font-weight:600}
+  .msg{font-size:.86rem;font-weight:600}
+  .msg.ok{color:var(--ok)} .msg.bad{color:var(--err)}
+  .blk{border:1px solid var(--line);border-radius:9px;margin:0 0 14px;overflow:hidden;background:var(--card)}
+  .blk>header{display:flex;gap:8px;align-items:center;justify-content:space-between;
+    padding:8px 10px;background:var(--code-bg);border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .blk h3{margin:0;font-size:.9rem;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .blk .path{color:var(--muted);font-size:.76rem;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .blk .btns{display:flex;gap:6px}
+  pre{margin:0;padding:12px;overflow-x:auto;background:var(--code-bg);color:var(--code-ink);
+    font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;tab-size:2}
+  .tc{color:var(--tok-com);font-style:italic} .ts{color:var(--tok-str)}
+  .tk{color:var(--tok-key);font-weight:600} .tn{color:var(--tok-num)} .tg{color:var(--tok-tag)}
+  .note{border-left:4px solid var(--warn);background:rgba(224,179,65,.10);
+    border-radius:0 8px 8px 0;padding:10px 12px;font-size:.86rem;margin:0 0 16px}
+  .note.sec{border-left-color:var(--err);background:rgba(180,35,24,.08)}
+  .hidden{display:none}
+  .rec{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.82rem;
+    color:var(--muted);word-break:break-all}
+  footer{color:var(--muted);font-size:.8rem;margin-top:26px;border-top:1px solid var(--line);padding-top:10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 id="t-titre">Générateur — Chapitre 2 : Tomcat, JVM et pannes mémoire</h1>
+  <p class="sub" id="t-intro"></p>
+
+  <div class="note sec">
+    <strong>Confidentialité.</strong> Cette page fonctionne entièrement dans votre navigateur :
+    aucun appel réseau, aucune donnée enregistrée, aucun cookie. Le token d'enrôlement que vous
+    saisissez n'est jamais pré-rempli et disparaît dès que vous fermez l'onglet.
+  </div>
+
+  <h2>1. Valeurs fixes de la plateforme EFI</h2>
+  <div class="card">
+    <table class="cst"><tbody id="t-cst"></tbody></table>
+  </div>
+
+  <h2>2. Paramètres de votre VM</h2>
+  <div class="card">
+    <form id="t-form" novalidate><div class="grid" id="t-fields"></div></form>
+    <div class="actions">
+      <button type="button" class="primary" id="t-gen">Générer</button>
+      <button type="button" id="t-reset">Réinitialiser</button>
+      <span class="msg" id="t-msg"></span>
+    </div>
+  </div>
+
+  <div id="t-out" class="hidden">
+    <h2>3. Fichiers et commandes générés</h2>
+    <div class="card" id="t-recap"></div>
+    <div id="t-blocks"></div>
+  </div>
+
+  <footer>
+    Khlifi Houcem — Formateur DevSecOps et Cloud · Plateforme EFILearn ·
+    Elastic Observability (version condensée). Générateur autonome, sans dépendance externe.
+  </footer>
+</div>
+
+<script>
+"use strict";
+const PAYLOAD = {
+ "chapitre": "Générateur — Chapitre 2 : Tomcat, JVM et pannes mémoire",
+ "intro": "Renseignez les paramètres de votre Tomcat : la page produit les configurations du chapitre, l'application de démonstration et les scripts de scénario, avec vos valeurs. Les modèles sont exactement ceux du dossier 02-tomcat/ du tutoriel.",
+ "constants": [
+  {
+   "label": "Version de la stack",
+   "value": "9.5.5",
+   "note": "La version de l'Elastic Agent doit etre identique a celle du cluster."
+  },
+  {
+   "label": "Cluster Elasticsearch",
+   "value": "efi-elk-training",
+   "note": "elk-es0 172.16.3.50 / elk-es1 172.16.3.51 / elk-es2 172.16.3.52 (master + data, :9200 / :9300)"
+  },
+  {
+   "label": "API Elasticsearch",
+   "value": "https://172.16.3.50:9200"
+  },
+  {
+   "label": "Kibana (elk-kibana0)",
+   "value": "https://172.16.3.53:5601",
+   "note": "Acces candidat par le reverse proxy Nginx : https://elk.efi-academy.com/tp/"
+  },
+  {
+   "label": "Fleet Server (elk-fleet0)",
+   "value": "https://172.16.3.55:8220",
+   "note": "Plan de controle : enrolement, politiques, etat des agents."
+  }
+ ],
+ "fixed": {
+  "ES_VERSION": "9.5.5",
+  "ES_CLUSTER": "efi-elk-training",
+  "ES_URL": "https://172.16.3.50:9200",
+  "ES_URL1": "https://172.16.3.51:9200",
+  "ES_URL2": "https://172.16.3.52:9200",
+  "ES_IP0": "172.16.3.50",
+  "ES_IP1": "172.16.3.51",
+  "ES_IP2": "172.16.3.52",
+  "KIBANA_URL": "https://172.16.3.53:5601",
+  "KIBANA_PUBLIC": "https://elk.efi-academy.com/tp/",
+  "KIBANA_IP": "172.16.3.53",
+  "FLEET_URL": "https://172.16.3.55:8220",
+  "FLEET_IP": "172.16.3.55",
+  "LOGSTASH_BEATS": "172.16.3.54:5044",
+  "LOGSTASH_HTTP": "https://172.16.3.54:8443",
+  "LOGSTASH_IP": "172.16.3.54",
+  "MINIO_URL": "http://172.16.50.10:9000",
+  "EFI_NET": "172.16.0.0/16"
+ },
+ "fields": [
+  {
+   "key": "NUM",
+   "label": "Numéro étudiant",
+   "type": "select",
+   "required": true,
+   "options": [
+    "01",
+    "02",
+    "03",
+    "04",
+    "05",
+    "06",
+    "07",
+    "08",
+    "09",
+    "10",
+    "11",
+    "12",
+    "13",
+    "14",
+    "15",
+    "16",
+    "17",
+    "18",
+    "19",
+    "20"
+   ],
+   "default": "01",
+   "help": "Détermine votre identifiant, votre namespace et votre politique d'agent."
+  },
+  {
+   "key": "STUDENT_HOST",
+   "label": "Nom d'hôte de la VM",
+   "type": "text",
+   "required": true,
+   "placeholder": "ex. vm-student07",
+   "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$",
+   "error": "Nom d'hôte invalide : minuscules, chiffres et tirets uniquement.",
+   "help": "La même valeur qu'au chapitre 1 : c'est le host.name de vos documents."
+  },
+  {
+   "key": "CATALINA_HOME",
+   "label": "CATALINA_HOME",
+   "type": "text",
+   "required": true,
+   "default": "/opt/tomcat",
+   "pattern": "^/[^\\s]*[^/\\s]$",
+   "error": "Chemin absolu attendu, sans barre oblique finale.",
+   "help": "Racine de Tomcat. Paquet Debian : /usr/share/tomcat9 ou /usr/share/tomcat10. Archive décompressée : /opt/tomcat."
+  },
+  {
+   "key": "CATALINA_LOGS",
+   "label": "Répertoire des journaux Tomcat",
+   "type": "text",
+   "required": true,
+   "default": "/opt/tomcat/logs",
+   "pattern": "^/[^\\s]*[^/\\s]$",
+   "error": "Chemin absolu attendu.",
+   "help": "Souvent CATALINA_HOME/logs, mais /var/log/tomcat9 avec les paquets Debian. Vérifiez : ls -l là où catalina.out existe réellement."
+  },
+  {
+   "key": "TOMCAT_USER",
+   "label": "Compte système de Tomcat",
+   "type": "text",
+   "required": true,
+   "default": "tomcat",
+   "pattern": "^[a-z_][a-z0-9_-]*$",
+   "error": "Nom de compte invalide.",
+   "help": "Le compte qui exécute la JVM : nécessaire pour jcmd et jstat (sudo -u)."
+  },
+  {
+   "key": "TOMCAT_PORT",
+   "label": "Port du connecteur HTTP",
+   "type": "text",
+   "required": true,
+   "default": "8080",
+   "pattern": "^[0-9]{2,5}$",
+   "error": "Numéro de port invalide.",
+   "help": "Détermine aussi le nom du pool de threads dans JMX : http-nio-<port>."
+  },
+  {
+   "key": "APP_CONTEXT",
+   "label": "Contexte de l'application",
+   "type": "text",
+   "required": true,
+   "default": "shopflow-api",
+   "pattern": "^[a-zA-Z0-9_-]+$",
+   "error": "Caractères alphanumériques, tiret et souligné.",
+   "help": "Nom du WAR, donc chemin du contexte : /shopflow-api/api/cart."
+  },
+  {
+   "key": "HEAP_MB",
+   "label": "Taille de la heap en Mo (-Xms = -Xmx)",
+   "type": "text",
+   "required": true,
+   "default": "512",
+   "pattern": "^[0-9]{3,5}$",
+   "error": "Valeur en mégaoctets attendue.",
+   "help": "Volontairement petite en TP : la fuite mémoire devient observable en quelques minutes. Vérifiez que la VM a au moins 2 Go de RAM."
+  },
+  {
+   "key": "JMX_PORT",
+   "label": "Port JMX local",
+   "type": "text",
+   "required": true,
+   "default": "9010",
+   "pattern": "^[0-9]{2,5}$",
+   "error": "Numéro de port invalide.",
+   "help": "Restreint à 127.0.0.1. JMX sans authentification exposé publiquement est une vulnérabilité d'exécution de code à distance."
+  },
+  {
+   "key": "JOLOKIA_PORT",
+   "label": "Port de l'agent Jolokia",
+   "type": "text",
+   "required": true,
+   "default": "8778",
+   "pattern": "^[0-9]{2,5}$",
+   "error": "Numéro de port invalide.",
+   "help": "Jolokia expose les MBeans en HTTP/JSON pour l'intégration Elastic, sur la boucle locale."
+  },
+  {
+   "key": "JOLOKIA_JAR",
+   "label": "Chemin de l'agent Jolokia",
+   "type": "text",
+   "required": true,
+   "default": "/opt/jolokia/jolokia-jvm-agent.jar",
+   "pattern": "^/[^\\s]*[^/\\s]$",
+   "error": "Chemin absolu attendu.",
+   "help": "Fichier fourni par le formateur. Sans lui, commentez la ligne -javaagent de setenv.sh : vous lirez la JVM avec jcmd et jstat."
+  },
+  {
+   "key": "TIMEZONE",
+   "label": "Fuseau horaire de la VM",
+   "type": "text",
+   "required": true,
+   "default": "Europe/Paris",
+   "pattern": "^[A-Za-z]+/[A-Za-z_+-]+$",
+   "error": "Identifiant de fuseau attendu, par exemple Europe/Paris.",
+   "help": "Le format de date de Tomcat ne contient AUCUN fuseau : le pipeline doit le lui préciser. C'est la cause numéro un des logs décalés de deux heures."
+  },
+  {
+   "key": "CA_PATH",
+   "label": "Autorité de certification interne",
+   "type": "text",
+   "required": true,
+   "default": "/etc/efi/pki/ca.crt",
+   "pattern": "^/[^\\s]*[^/\\s]$",
+   "error": "Chemin absolu attendu.",
+   "help": "Utilisée par les scripts de vérification pour appeler Elasticsearch en HTTPS."
+  },
+  {
+   "key": "ES_API_KEY",
+   "label": "Clé d'API Elasticsearch (facultatif)",
+   "type": "password",
+   "required": false,
+   "placeholder": "pour le script de vérification",
+   "help": "Peut rester vide et être passée par la variable d'environnement ES_API_KEY."
+  }
+ ],
+ "derived": {
+  "STUDENT_ID": "student{{NUM}}",
+  "NAMESPACE": "student{{NUM}}",
+  "POLICY": "policy-student{{NUM}}",
+  "SPACE": "student{{NUM}}"
+ },
+ "recap": [
+  "STUDENT_ID",
+  "NAMESPACE",
+  "POLICY",
+  "STUDENT_HOST",
+  "CATALINA_HOME",
+  "CATALINA_LOGS",
+  "TOMCAT_PORT",
+  "APP_CONTEXT",
+  "HEAP_MB",
+  "TIMEZONE",
+  "ES_VERSION"
+ ],
+ "commands": [
+  {
+   "name": "parcours.sh",
+   "title": "Séquence complète du chapitre, étape par étape",
+   "content": "#!/usr/bin/env bash\n# ─────────────────────────────────────────────────────────────────────────────\n#  parcours.sh — la séquence complète du chapitre 2, pour {{STUDENT_ID}}\n#  À dérouler étape par étape, en vérifiant après chacune.\n# ─────────────────────────────────────────────────────────────────────────────\n\n# ÉTAPE 1 — Prérequis --------------------------------------------------------\nsudo systemctl status tomcat --no-pager | head -5\nls {{CATALINA_HOME}}/{bin,conf,logs,webapps}\nls {{CATALINA_HOME}}/lib | grep -i servlet      # jakarta (Tomcat 10+) ou javax (9)\njava -version 2>&1 | head -1\nid {{TOMCAT_USER}}\ndf -h {{CATALINA_LOGS}} | tail -1               # un dump pèse autant que la heap\n\n# ÉTAPE 2 — Journaux et options JVM ------------------------------------------\nsudo cp {{CATALINA_HOME}}/conf/server.xml{,.avant-tp}\nsudo cp {{CATALINA_HOME}}/conf/logging.properties{,.avant-tp}\n#   reporter le bloc <Valve> de server-xml-host.xml dans <Host name=\"localhost\">\nsudo install -m 750 -o {{TOMCAT_USER}} -g {{TOMCAT_USER}} setenv.sh {{CATALINA_HOME}}/bin/setenv.sh\nsudo install -m 644 logrotate-tomcat /etc/logrotate.d/tomcat\nsudo systemctl restart tomcat\nsleep 20\n\n# ✅ Vérification\nPID=$(pgrep -f catalina | head -1) ; echo \"PID=$PID\"\nsudo -u {{TOMCAT_USER}} jcmd \"$PID\" VM.flags | tr ' ' '\\n' | grep -E 'HeapSize|UseG1GC|HeapDump'\nsudo tail -5 {{CATALINA_LOGS}}/gc.log\nsudo tail -3 {{CATALINA_LOGS}}/localhost_access_log.*.txt\n\n# ÉTAPE 3 — Application de démonstration -------------------------------------\ncd app && ./build-war.sh && sudo ./deploy-war.sh && cd ..\ncurl -s http://localhost:{{TOMCAT_PORT}}/{{APP_CONTEXT}}/health ; echo\ncurl -s http://localhost:{{TOMCAT_PORT}}/{{APP_CONTEXT}}/api/cart | head -c 120 ; echo\n\n# ÉTAPE 4 — Pipelines (Kibana -> Dev Tools -> Console) -----------------------\n#   PUT  _ingest/pipeline/logs-shopflow_tomcat.access@custom      <- pipeline-tomcat-access.json\n#   PUT  _ingest/pipeline/logs-shopflow_tomcat.catalina@custom    <- pipeline-tomcat-catalina.json\n#   POST .../_simulate                                            <- pipeline-tomcat-simulate.json\n#   Attendu : event.duration = 4102000000 ns (et NON 4102000)\n\n# ÉTAPE 5 — Intégrations dans la politique {{POLICY}} ------------------------\n#   Fleet -> Agent policies -> {{POLICY}} -> Add integration\n#     a) Apache Tomcat si elle existe dans le catalogue, sinon Custom Logs :\n#          {{CATALINA_LOGS}}/localhost_access_log.*.txt   dataset shopflow_tomcat.access\n#          {{CATALINA_LOGS}}/catalina.out                 dataset shopflow_tomcat.catalina\n#          {{CATALINA_LOGS}}/catalina.*.log               dataset shopflow_tomcat.catalina\n#          {{CATALINA_LOGS}}/localhost.*.log              dataset shopflow_tomcat.localhost\n#        + coller custom-logs-multiline.yml dans « Custom configurations »\n#     b) Jolokia : http://127.0.0.1:{{JOLOKIA_PORT}}/jolokia, mappings de\n#        jolokia-mappings.yml\n\n# ✅ Vérification\nsudo elastic-agent status --output=full | head -40\nES_API_KEY='<votre-cle>' ./scripts/verif-tomcat.sh\n\n# ÉTAPE 6 — Scénarios --------------------------------------------------------\n./scripts/scenario-lenteur.sh B 180        # requête non bornée : 200 et pourtant lent\n./scripts/scenario-fuite.sh 10 10          # fuite jusqu'à l'OutOfMemoryError\nsudo systemctl restart tomcat              # remise en état après l'OOM\n./scripts/scenario-deploiement.sh          # échec de déploiement\n\n# ÉTAPE 7 — Nettoyage --------------------------------------------------------\ncurl -s http://localhost:{{TOMCAT_PORT}}/{{APP_CONTEXT}}/api/reset ; echo\nsudo logrotate -f /etc/logrotate.d/tomcat\nsudo rm -f {{CATALINA_LOGS}}/heapdump.hprof     # un dump peut contenir des données\n",
+   "lang": "bash"
+  },
+  {
+   "name": "build-war.sh",
+   "title": "Construction du WAR (javac + jar, sans Maven ni réseau)",
+   "content": "#!/usr/bin/env bash\n# ─────────────────────────────────────────────────────────────────────────────\n#  build-war.sh — construit {{APP_CONTEXT}}.war sans Maven et sans réseau.\n#\n#  Seules dépendances : le JDK installé sur la VM et l'API servlet fournie\n#  par Tomcat lui-même ({{CATALINA_HOME}}/lib).\n#\n#  Tomcat 10 et 11 utilisent les paquets « jakarta.servlet » ; Tomcat 9 et\n#  antérieurs utilisent « javax.servlet ». Le script détecte le cas et adapte\n#  les imports : c'est la cause numéro un des échecs de déploiement en TP.\n#\n#  Usage :  ./build-war.sh   puis   sudo ./deploy-war.sh\n# ─────────────────────────────────────────────────────────────────────────────\nset -euo pipefail\n\nCATALINA_HOME=\"{{CATALINA_HOME}}\"\nCONTEXT=\"{{APP_CONTEXT}}\"\nBUILD=\"$(pwd)/build\"\n\ncommand -v javac >/dev/null || { echo \"[ERREUR] JDK absent : sudo apt-get install -y default-jdk\"; exit 1; }\njavac -version\n\n# ── 1. Trouver l'API servlet livrée avec Tomcat ─────────────────────────────\nAPI_JAR=\"$(ls \"${CATALINA_HOME}\"/lib/servlet-api.jar \\\n              \"${CATALINA_HOME}\"/lib/jakarta.servlet-api*.jar 2>/dev/null | head -1 || true)\"\nif [ -z \"$API_JAR\" ]; then\n  echo \"[ERREUR] API servlet introuvable dans ${CATALINA_HOME}/lib\" >&2\n  echo \"         vérifiez CATALINA_HOME : ls ${CATALINA_HOME}/lib | grep -i servlet\" >&2\n  exit 1\nfi\necho \"[i] API servlet : $API_JAR\"\n\n# ── 2. Détecter jakarta ou javax ────────────────────────────────────────────\nif unzip -l \"$API_JAR\" 2>/dev/null | grep -q 'jakarta/servlet/http/HttpServlet.class'; then\n  NAMESPACE=\"jakarta\"\nelse\n  NAMESPACE=\"javax\"\nfi\necho \"[i] espace de noms servlet détecté : ${NAMESPACE}.servlet\"\n\n# ── 3. Préparer l'arborescence du WAR ───────────────────────────────────────\nrm -rf \"$BUILD\"\nmkdir -p \"$BUILD/WEB-INF/classes/com/novacommerce/shopflow\"\ncp ShopFlowServlet.java \"$BUILD/ShopFlowServlet.java\"\nif [ \"$NAMESPACE\" = \"javax\" ]; then\n  sed -i 's/jakarta\\.servlet/javax.servlet/g' \"$BUILD/ShopFlowServlet.java\"\n  echo \"[i] imports réécrits en javax.servlet (Tomcat 9 ou antérieur)\"\nfi\ncp web.xml      \"$BUILD/WEB-INF/web.xml\"\ncp logback.xml  \"$BUILD/WEB-INF/classes/logback.xml\" 2>/dev/null \\\n  || echo \"[i] logback.xml absent : la journalisation JSON passera par stdout (catalina.out)\"\n\n# ── 4. Compiler ─────────────────────────────────────────────────────────────\njavac -encoding UTF-8 -cp \"$API_JAR\" \\\n      -d \"$BUILD/WEB-INF/classes\" \"$BUILD/ShopFlowServlet.java\"\nrm -f \"$BUILD/ShopFlowServlet.java\"\n\n# ── 5. Empaqueter ───────────────────────────────────────────────────────────\n( cd \"$BUILD\" && jar --create --file \"../${CONTEXT}.war\" . )\nls -lh \"${CONTEXT}.war\"\n\ncat <<FIN\n\n[OK] ${CONTEXT}.war construit.\nDéploiement :\n  sudo cp ${CONTEXT}.war {{CATALINA_HOME}}/webapps/\n  sudo tail -f {{CATALINA_LOGS}}/catalina.out      # suivre le déploiement\nVérification :\n  curl -s http://localhost:{{TOMCAT_PORT}}/${CONTEXT}/health\nFIN\n",
+   "lang": "bash"
+  },
+  {
+   "name": "deploy-war.sh",
+   "title": "Déploiement et suivi du journal de déploiement",
+   "content": "#!/usr/bin/env bash\n# ─────────────────────────────────────────────────────────────────────────────\n#  deploy-war.sh — déploie {{APP_CONTEXT}}.war et suit le déploiement.\n#\n#  Objectif pédagogique : voir dans les journaux l'ÉVÉNEMENT « déploiement ».\n#  Toute dégradation qui commence à la minute d'un déploiement a une cause\n#  très probable : ce déploiement.\n# ─────────────────────────────────────────────────────────────────────────────\nset -euo pipefail\n\nCONTEXT=\"{{APP_CONTEXT}}\"\nCATALINA_HOME=\"{{CATALINA_HOME}}\"\nLOGS=\"{{CATALINA_LOGS}}\"\nPORT=\"{{TOMCAT_PORT}}\"\n\n[ -f \"${CONTEXT}.war\" ] || { echo \"[ERREUR] ${CONTEXT}.war absent : lancez ./build-war.sh\"; exit 1; }\n\necho \"== Horodatage du déploiement (à noter dans votre compte rendu) ==\"\ndate -u '+%Y-%m-%dT%H:%M:%SZ'\n\necho \"== Copie dans webapps (autoDeploy détecte le nouveau WAR) ==\"\nsudo cp \"${CONTEXT}.war\" \"${CATALINA_HOME}/webapps/\"\n\necho \"== Suivi du déploiement : 30 secondes de journal ==\"\nsudo timeout 30 tail -f \"${LOGS}/catalina.out\" | grep -E --line-buffered \\\n  'Deploying|Deployment of|has finished|SEVERE|ERROR|Exception' || true\n\necho\necho \"== Vérification ==\"\ncurl -s \"http://localhost:${PORT}/${CONTEXT}/health\" ; echo\ncurl -s \"http://localhost:${PORT}/${CONTEXT}/api/cart\" | head -c 160 ; echo\n\ncat <<'FIN'\n\nCe que vous devez avoir vu dans le journal :\n  INFO ... HostConfig.deployWAR  Deploying web application archive [...war]\n  INFO ... HostConfig.deployWAR  Deployment of web application archive [...]\n                                 has finished in [N] ms\nRetenez le « N » : c'est votre durée de déploiement de référence.\nFIN\n",
+   "lang": "bash"
+  },
+  {
+   "name": "verif-tomcat.sh",
+   "title": "Points de contrôle, dont le contrôle d'unité des durées",
+   "content": "#!/usr/bin/env bash\n# ─────────────────────────────────────────────────────────────────────────────\n#  verif-tomcat.sh — les quatre points de contrôle, côté Tomcat ({{STUDENT_ID}})\n#  Usage :  ES_API_KEY='<cle>' ./verif-tomcat.sh\n# ─────────────────────────────────────────────────────────────────────────────\nset -uo pipefail\n\nES_URL=\"{{ES_URL}}\"\nCA_PATH=\"{{CA_PATH}}\"\nNS=\"{{NAMESPACE}}\"\nLOGS=\"{{CATALINA_LOGS}}\"\nPORT=\"{{TOMCAT_PORT}}\"\nCTX=\"{{APP_CONTEXT}}\"\nCLE_GENEREE='{{ES_API_KEY}}'\nCLE=\"${ES_API_KEY:-$CLE_GENEREE}\"\n\nes() { curl -sS --cacert \"$CA_PATH\" -H \"Authorization: ApiKey ${CLE}\" \"$@\"; }\n\necho \"═══ 1. LA SOURCE PRODUIT-ELLE ? ═══\"\necho \"--- l'application répond ---\"\ncurl -s \"http://localhost:${PORT}/${CTX}/health\" ; echo\necho \"--- journal d'accès (le dernier champ avant le thread est %D, en MILLISECONDES) ---\"\nsudo tail -2 \"${LOGS}\"/localhost_access_log.*.txt 2>/dev/null | tail -2\necho \"--- catalina.out : les lignes JSON de l'application ---\"\nsudo grep -h '\"service.name\":\"shopflow-api\"' \"${LOGS}/catalina.out\" 2>/dev/null | tail -2\necho \"--- dernier déploiement enregistré ---\"\nsudo grep -h 'Deployment of web application' \"${LOGS}\"/catalina.*.log \"${LOGS}/catalina.out\" 2>/dev/null | tail -2\n\necho\necho \"═══ 2. LA JVM EST-ELLE OBSERVABLE ? ═══\"\nPID=\"$(pgrep -f 'catalina' | head -1 || true)\"\nif [ -n \"$PID\" ]; then\n  echo \"PID Tomcat : $PID\"\n  sudo -u \"{{TOMCAT_USER}}\" jcmd \"$PID\" VM.flags 2>/dev/null | tr ' ' '\\n' \\\n    | grep -E 'MaxHeapSize|InitialHeapSize|UseG1GC|HeapDump' || echo \"  (jcmd indisponible)\"\n  echo \"--- occupation des zones et compteurs de GC (jstat) ---\"\n  sudo -u \"{{TOMCAT_USER}}\" jstat -gcutil \"$PID\" 1000 3 2>/dev/null || echo \"  (jstat indisponible)\"\n  echo \"--- Jolokia : expose-t-il les MBeans ? ---\"\n  curl -s \"http://127.0.0.1:{{JOLOKIA_PORT}}/jolokia/read/java.lang:type=Memory/HeapMemoryUsage\" \\\n    | head -c 300 ; echo\nelse\n  echo \"[!] aucun processus Tomcat trouvé : sudo systemctl status tomcat\"\nfi\n\necho\necho \"═══ 3. L'AGENT LIT-IL ? ═══\"\nsudo elastic-agent status --output=full | grep -iA3 'tomcat\\|filestream\\|jolokia' | head -40\nsudo elastic-agent inspect | grep -A4 -i 'paths' | grep -i tomcat | head\n\necho\necho \"═══ 4. ELASTICSEARCH A-T-IL REÇU ? ═══\"\nfor DS in \"logs-shopflow_tomcat.access-${NS}\" \"logs-shopflow_tomcat.catalina-${NS}\" \\\n          \"logs-shopflow_tomcat.app-${NS}\" \"metrics-jolokia.jvm-${NS}\"; do\n  N=$(es \"${ES_URL}/${DS}/_count\" \\\n      | python3 -c 'import json,sys; print(json.load(sys.stdin).get(\"count\",\"absent\"))' 2>/dev/null || echo \"absent\")\n  printf \"  %-46s %s document(s)\\n\" \"$DS\" \"$N\"\ndone\n\necho\necho \"--- CONTRÔLE D'UNITÉ : la plus longue durée vue par Elastic ---\"\n#  À comparer avec la valeur mesurée par curl : si Elastic affiche 1 000 fois\n#  moins, le facteur de conversion ms -> ns est faux dans le pipeline.\nes -H 'Content-Type: application/json' \\\n  \"${ES_URL}/logs-shopflow_tomcat.access-${NS}/_search?size=0\" -d '{\n    \"aggs\": { \"duree_max_ns\": { \"max\": { \"field\": \"event.duration\" } } } }' \\\n  | python3 -c '\nimport json,sys\nv = json.load(sys.stdin).get(\"aggregations\", {}).get(\"duree_max_ns\", {}).get(\"value\")\nprint(\"  max event.duration :\", v, \"ns\" if v else \"(aucune donnée)\")\nif v: print(\"  soit               :\", round(v/1e9, 3), \"s\")\n'\necho \"--- mesure de référence côté client, pour comparaison ---\"\ncurl -s -o /dev/null -w \"  curl sur /api/lent?ms=1500 : %{time_total}s\\n\" \\\n  \"http://localhost:${PORT}/${CTX}/api/lent?ms=1500\"\n\necho\necho \"--- CONTRÔLE QUALITÉ : documents mal parsés (DOIT valoir 0) ---\"\nes -H 'Content-Type: application/json' \\\n  \"${ES_URL}/logs-shopflow_tomcat.*-${NS}/_count\" -d '{\n    \"query\": { \"bool\": { \"should\": [\n      { \"exists\": { \"field\": \"error.message\" } },\n      { \"terms\": { \"tags\": [\"grok_tomcat_failed\", \"grok_tomcat_access_failed\"] } }\n    ], \"minimum_should_match\": 1 } } }'\necho\necho \"═══ Terminé ═══\"\n",
+   "lang": "bash"
+  },
+  {
+   "name": "scenario-lenteur.sh",
+   "title": "Scénario : application lente, sans aucune erreur",
+   "content": "#!/usr/bin/env bash\n# ─────────────────────────────────────────────────────────────────────────────\n#  scenario-lenteur.sh — application lente, sans AUCUNE erreur ({{STUDENT_ID}})\n#\n#  Deux formes de lenteur, à ne pas confondre :\n#    A. latence artificielle maîtrisée  (/api/lent?ms=N)\n#    B. requête non bornée du fil rouge (/api/cart?scenario=degrade) :\n#       142 000 articles chargés, ~4 s, ~180 Ko de réponse, code 200.\n#\n#  Usage :  ./scenario-lenteur.sh [A|B] [duree_s]\n# ─────────────────────────────────────────────────────────────────────────────\nset -uo pipefail\n\nFORME=\"${1:-B}\"\nDUREE=\"${2:-180}\"\nBASE=\"http://localhost:{{TOMCAT_PORT}}/{{APP_CONTEXT}}\"\nFIN=$(( $(date +%s) + DUREE ))\n\ncase \"$FORME\" in\n  A)\n    echo \"== Latence croissante : 6 paliers ==\"\n    for ms in 200 500 900 1500 2500 4000; do\n      echo \"--- ${ms} ms demandés ---\"\n      for _ in $(seq 1 6); do\n        curl -s -o /dev/null -w \"  code %{http_code}  mesuré %{time_total}s\\n\" \\\n          \"${BASE}/api/lent?ms=${ms}\"\n      done\n    done\n    ;;\n\n  B)\n    echo \"== Fil rouge : dégradation du panier (requête non bornée) ==\"\n    curl -s -o /dev/null \"${BASE}/api/cart?scenario=degrade\"\n    date -u '+%Y-%m-%dT%H:%M:%SZ  début de la dégradation'\n    while [ \"$(date +%s)\" -lt \"$FIN\" ]; do\n      curl -s -o /dev/null -w \"  cart : %{http_code}  %{time_total}s  %{size_download} octets\\n\" \\\n        \"${BASE}/api/cart\"\n      curl -s -o /dev/null \"${BASE}/api/produit/42\"\n      sleep 1\n    done\n    curl -s -o /dev/null \"${BASE}/api/cart?scenario=normal\"\n    date -u '+%Y-%m-%dT%H:%M:%SZ  retour à la normale'\n    ;;\n\n  *) echo \"usage : $0 [A|B] [duree_s]\"; exit 1 ;;\nesac\n\ncat <<'FIN'\n\nCe que vous devez observer dans Kibana :\n  - P95 et P99 qui montent, P50 qui bouge peu : une MINORITÉ de requêtes\n    est touchée. (Si les trois montent ensemble, c'est une ressource\n    saturée, pas une route lente.)\n  - AUCUN code d'erreur : http.response.status_code reste à 200.\n  - La taille des réponses qui augmente, corrélée à la lenteur.\n  - Côté JVM : heap et GC NORMAUX. C'est une conclusion positive — elle\n    innocente l'infrastructure et oriente vers le code.\n  - Côté Apache (chapitre 1) : des workers occupés plus longtemps, voire\n    des 504 si la durée dépasse ProxyTimeout.\nFIN\n",
+   "lang": "bash"
+  },
+  {
+   "name": "scenario-fuite.sh",
+   "title": "Scénario : fuite mémoire jusqu'à l'OutOfMemoryError",
+   "content": "#!/usr/bin/env bash\n# ─────────────────────────────────────────────────────────────────────────────\n#  scenario-fuite.sh — fuite mémoire volontaire jusqu'à l'OutOfMemoryError\n#  Candidat : {{STUDENT_ID}}   À lancer UNIQUEMENT sur votre VM.\n#\n#  Principe : la route /api/fuite retient N Mo dans une collection statique\n#  qui n'est jamais vidée. Chaque GC libère donc de moins en moins.\n#\n#  Usage :  ./scenario-fuite.sh [mo_par_appel] [intervalle_s]\n#  Retour à la normale : curl http://localhost:PORT/CTX/api/reset\n# ─────────────────────────────────────────────────────────────────────────────\nset -uo pipefail\n\nMO=\"${1:-10}\"\nINTERVALLE=\"${2:-10}\"\nBASE=\"http://localhost:{{TOMCAT_PORT}}/{{APP_CONTEXT}}\"\nLOGS=\"{{CATALINA_LOGS}}\"\n\nPID=\"$(pgrep -f 'catalina' | head -1 || true)\"\n[ -n \"$PID\" ] || { echo \"[ERREUR] Tomcat ne tourne pas.\"; exit 1; }\n\necho \"== Fuite mémoire : ${MO} Mo toutes les ${INTERVALLE} s — heap = {{HEAP_MB}} Mo ==\"\necho \"== PID $PID · début $(date -u '+%H:%M:%SZ') · Ctrl-C pour arrêter ==\"\necho\nprintf \"%-10s %-8s %-8s %-8s %-8s %-8s %-10s\\n\" \"heure\" \"retenu\" \"O(%)\" \"E(%)\" \"M(%)\" \"FGC\" \"GCT(s)\"\n\ni=0\nwhile true; do\n  i=$((i + 1))\n  RETENU=$(curl -s \"${BASE}/api/fuite?mo=${MO}\" \\\n           | python3 -c 'import json,sys; print(json.load(sys.stdin).get(\"retenu_mo\",\"?\"))' 2>/dev/null || echo \"OOM?\")\n\n  # jstat -gcutil : O = Old en %, E = Eden, M = Metaspace,\n  #                 FGC = nombre de full GC, GCT = temps TOTAL passé en GC.\n  # Ce qui compte n'est pas le NOMBRE de GC mais le TEMPS passé en GC.\n  LIGNE=$(sudo -u \"{{TOMCAT_USER}}\" jstat -gcutil \"$PID\" 2>/dev/null | tail -1)\n  O=$(echo \"$LIGNE\" | awk '{print $4}')\n  E=$(echo \"$LIGNE\" | awk '{print $3}')\n  M=$(echo \"$LIGNE\" | awk '{print $5}')\n  FGC=$(echo \"$LIGNE\" | awk '{print $8}')\n  GCT=$(echo \"$LIGNE\" | awk '{print $NF}')\n  printf \"%-10s %-8s %-8s %-8s %-8s %-8s %-10s\\n\" \\\n    \"$(date -u '+%H:%M:%S')\" \"${RETENU}Mo\" \"$O\" \"$E\" \"$M\" \"$FGC\" \"$GCT\"\n\n  if sudo grep -q 'OutOfMemoryError' \"${LOGS}/catalina.out\" 2>/dev/null; then\n    echo\n    echo \"== OutOfMemoryError détecté à $(date -u '+%H:%M:%SZ') ==\"\n    sudo grep -h -m3 'OutOfMemoryError' \"${LOGS}/catalina.out\"\n    echo \"--- un dump a-t-il été produit ? ---\"\n    sudo ls -lh \"${LOGS}\"/heapdump.hprof 2>/dev/null \\\n      || echo \"  aucun dump : vérifiez l'espace disque et les droits sur ${LOGS}\"\n    echo\n    echo \"À relever dans votre compte rendu :\"\n    echo \"  - le MESSAGE exact de l'OOM (Java heap space ? GC overhead limit exceeded ?)\"\n    echo \"  - le nombre d'appels avant la bascule : $i (soit $((i * MO)) Mo demandés)\"\n    echo \"  - la taille du dump, à comparer à la heap ({{HEAP_MB}} Mo)\"\n    echo \"Puis : sudo systemctl restart tomcat && curl ${BASE}/api/reset\"\n    exit 0\n  fi\n  sleep \"$INTERVALLE\"\ndone\n",
+   "lang": "bash"
+  },
+  {
+   "name": "scenario-deploiement.sh",
+   "title": "Scénario : échec de déploiement",
+   "content": "#!/usr/bin/env bash\n# ─────────────────────────────────────────────────────────────────────────────\n#  scenario-deploiement.sh — échec de déploiement ({{STUDENT_ID}})\n#\n#  On déploie volontairement un WAR dont le descripteur web.xml est invalide.\n#  Objectif : voir l'ÉVÉNEMENT d'échec dans catalina, comprendre que\n#  l'application précédente reste ou non en service, et mesurer le temps\n#  entre le déploiement et la détection.\n#\n#  Usage :  ./scenario-deploiement.sh        (puis le script restaure le bon WAR)\n# ─────────────────────────────────────────────────────────────────────────────\nset -uo pipefail\n\nCTX=\"{{APP_CONTEXT}}\"\nHOME_T=\"{{CATALINA_HOME}}\"\nLOGS=\"{{CATALINA_LOGS}}\"\nPORT=\"{{TOMCAT_PORT}}\"\nTMP=\"$(mktemp -d)\"\n\n[ -f \"${CTX}.war\" ] || { echo \"[ERREUR] ${CTX}.war absent : lancez ../app/build-war.sh\"; exit 1; }\n\necho \"== 1. État avant : l'application répond ? ==\"\ncurl -s -o /dev/null -w \"  /health -> %{http_code}\\n\" \"http://localhost:${PORT}/${CTX}/health\"\n\necho \"== 2. Fabrication d'un WAR cassé (web.xml malformé) ==\"\ncp \"${CTX}.war\" \"${TMP}/casse.war\"\nmkdir -p \"${TMP}/patch/WEB-INF\"\ncat > \"${TMP}/patch/WEB-INF/web.xml\" <<'XML'\n<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<web-app version=\"6.0\">\n  <session-config>\n    <session-timeout>15</session-timeout>\n  <!-- balise session-config volontairement NON fermee : parse error attendu -->\n</web-app>\nXML\n( cd \"${TMP}/patch\" && jar --update --file \"${TMP}/casse.war\" WEB-INF/web.xml )\n\necho \"== 3. Déploiement du WAR cassé ==\"\ndate -u '+%Y-%m-%dT%H:%M:%SZ  déploiement du WAR invalide'\nsudo cp \"${TMP}/casse.war\" \"${HOME_T}/webapps/${CTX}-casse.war\"\n\necho \"== 4. Suivi du journal pendant 30 s ==\"\nsudo timeout 30 tail -f \"${LOGS}/catalina.out\" | grep -E --line-buffered \\\n  'Deploying|SEVERE|ERROR|Parse error|Exception|FAIL' || true\n\necho\necho \"== 5. Conséquence sur le service ==\"\ncurl -s -o /dev/null -w \"  application saine   /health -> %{http_code}\\n\" \\\n  \"http://localhost:${PORT}/${CTX}/health\"\ncurl -s -o /dev/null -w \"  application cassée  /health -> %{http_code}\\n\" \\\n  \"http://localhost:${PORT}/${CTX}-casse/health\"\n\necho \"== 6. Nettoyage ==\"\nsudo rm -f \"${HOME_T}/webapps/${CTX}-casse.war\"\nsudo rm -rf \"${HOME_T}/webapps/${CTX}-casse\"\nrm -rf \"$TMP\"\necho \"  WAR cassé retiré.\"\n\ncat <<'FIN'\n\nCe que vous devez relever :\n  - la ligne SEVERE de catalina qui nomme le fichier et la cause\n    (« Parse error in application web.xml ») ;\n  - le fait que l'application SAINE continue de répondre : un échec de\n    déploiement n'est pas forcément une panne de service ;\n  - le délai entre la copie du WAR et l'apparition de l'erreur ;\n  - dans Kibana : le document correspondant, avec log.level = ERROR\n    (et non SEVERE, grâce au pipeline de normalisation).\n\nLa leçon d'exploitation : un déploiement est un ÉVÉNEMENT. Toute\ndégradation qui commence à la minute d'un déploiement a une cause très\nprobable — ce déploiement. C'est pourquoi on journalise les déploiements\nau même endroit que les métriques.\nFIN\n",
+   "lang": "bash"
+  }
+ ],
+ "files": [
+  {
+   "name": "setenv.sh",
+   "path": "{{CATALINA_HOME}}/bin/setenv.sh",
+   "lang": "bash",
+   "content": "#!/bin/sh\n# ─────────────────────────────────────────────────────────────────────────────\n#  {{CATALINA_HOME}}/bin/setenv.sh — options JVM de ShopFlow ({{STUDENT_ID}})\n#\n#  C'est LE fichier où l'on met les options JVM. Jamais dans catalina.sh :\n#  il est écrasé à chaque mise à jour de Tomcat.\n#\n#  Après modification :  sudo systemctl restart tomcat\n#  Vérification        :  sudo -u {{TOMCAT_USER}} jcmd <PID> VM.flags\n# ─────────────────────────────────────────────────────────────────────────────\n\n# ─── Mémoire ────────────────────────────────────────────────────────────────\n#  -Xms et -Xmx ÉGAUX : évite les redimensionnements et rend les courbes\n#  lisibles. Valeur volontairement petite en TP ({{HEAP_MB}} Mo) : les\n#  phénomènes de fuite et de GC excessif deviennent observables en quelques\n#  minutes au lieu de plusieurs heures.\nCATALINA_OPTS=\"$CATALINA_OPTS -Xms{{HEAP_MB}}m -Xmx{{HEAP_MB}}m\"\n\n# ─── Ramasse-miettes ────────────────────────────────────────────────────────\n#  G1 est le GC par défaut des JVM modernes. On fixe un objectif de pause.\nCATALINA_OPTS=\"$CATALINA_OPTS -XX:+UseG1GC -XX:MaxGCPauseMillis=200\"\n\n# ─── Journalisation du GC (unified logging, Java 9 et plus) ─────────────────\n#  Indispensable au diagnostic : 5 fichiers de 20 Mo en rotation, bornés.\nCATALINA_OPTS=\"$CATALINA_OPTS -Xlog:gc*:file={{CATALINA_LOGS}}/gc.log:time,uptime,level,tags:filecount=5,filesize=20M\"\n\n# ─── En cas d'OutOfMemoryError ──────────────────────────────────────────────\n#  Le dump mémoire est la SEULE façon d'analyser une fuite après coup.\n#  ATTENTION : un dump pèse autant que la heap. Vérifiez l'espace disque.\nCATALINA_OPTS=\"$CATALINA_OPTS -XX:+HeapDumpOnOutOfMemoryError\"\nCATALINA_OPTS=\"$CATALINA_OPTS -XX:HeapDumpPath={{CATALINA_LOGS}}/heapdump.hprof\"\n#  Tuer la JVM sur OOM permet à systemd de la relancer proprement, au lieu de\n#  laisser une JVM dans un état incohérent qui répond encore à moitié.\nCATALINA_OPTS=\"$CATALINA_OPTS -XX:+ExitOnOutOfMemoryError\"\n\n# ─── JMX, pour la collecte de métriques JVM et Tomcat ───────────────────────\n#  N'EXPOSEZ JAMAIS JMX SANS AUTHENTIFICATION SUR UNE INTERFACE PUBLIQUE :\n#  JMX non authentifié permet l'exécution de code à distance. La\n#  configuration ci-dessous n'est acceptable QUE parce qu'elle est restreinte\n#  à 127.0.0.1 et que le collecteur tourne sur la machine elle-même.\nCATALINA_OPTS=\"$CATALINA_OPTS -Dcom.sun.management.jmxremote\"\nCATALINA_OPTS=\"$CATALINA_OPTS -Dcom.sun.management.jmxremote.port={{JMX_PORT}}\"\nCATALINA_OPTS=\"$CATALINA_OPTS -Dcom.sun.management.jmxremote.rmi.port={{JMX_PORT}}\"\nCATALINA_OPTS=\"$CATALINA_OPTS -Dcom.sun.management.jmxremote.local.only=true\"\nCATALINA_OPTS=\"$CATALINA_OPTS -Dcom.sun.management.jmxremote.authenticate=false\"\nCATALINA_OPTS=\"$CATALINA_OPTS -Dcom.sun.management.jmxremote.ssl=false\"\nCATALINA_OPTS=\"$CATALINA_OPTS -Djava.rmi.server.hostname=127.0.0.1\"\n\n# ─── Agent Jolokia : expose JMX en HTTP/JSON pour l'intégration Elastic ─────\n#  Le fichier jolokia-jvm-agent.jar est fourni par le formateur et déposé\n#  dans {{JOLOKIA_JAR}}. Si vous ne l'avez pas, commentez la ligne : vous\n#  lirez alors les métriques JVM avec jcmd et jstat (voie de repli du\n#  chapitre), et la collecte Elastic se limitera aux journaux.\nCATALINA_OPTS=\"$CATALINA_OPTS -javaagent:{{JOLOKIA_JAR}}=port={{JOLOKIA_PORT}},host=127.0.0.1\"\n\nexport CATALINA_OPTS\n"
+  },
+  {
+   "name": "server-xml-host.xml",
+   "path": "extrait à reporter dans {{CATALINA_HOME}}/conf/server.xml",
+   "content": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!--\n  server-xml-host.xml — EXTRAIT à reporter dans {{CATALINA_HOME}}/conf/server.xml\n  Candidat : {{STUDENT_ID}}\n\n  Ne remplacez pas server.xml par ce fichier : il ne contient QUE le bloc\n  <Host> et la Valve de journal d'accès. Copiez le bloc <Valve> à l'intérieur\n  de votre <Host name=\"localhost\"> existant.\n\n  Sauvegardez avant toute modification :\n    sudo cp {{CATALINA_HOME}}/conf/server.xml {{CATALINA_HOME}}/conf/server.xml.avant-tp\n-->\n<Host name=\"localhost\" appBase=\"webapps\" unpackWARs=\"true\" autoDeploy=\"true\">\n\n  <!-- ───────────────────────────────────────────────────────────────────────\n       Journal d'accès de Tomcat.\n\n       %h hôte distant        %l identd        %u utilisateur authentifié\n       %t date                %r requête       %s statut        %b octets\n       %D durée en MILLISECONDES   ← Tomcat. Apache httpd, lui, est en\n                                       MICROSECONDES. C'est LE piège d'unité\n                                       du chapitre : un facteur 1 000.\n       %F délai avant le premier octet de réponse (ms)\n       %I nom du thread de traitement : relie une requête à sa pile d'appels\n       %{X-Request-Id}i en-tête injecté par Apache : le pont entre les deux\n                        sources de logs (chapitre 1)\n       ─────────────────────────────────────────────────────────────────────── -->\n  <Valve className=\"org.apache.catalina.valves.AccessLogValve\"\n         directory=\"logs\"\n         prefix=\"localhost_access_log\"\n         suffix=\".txt\"\n         fileDateFormat=\".yyyy-MM-dd\"\n         rotatable=\"true\"\n         pattern=\"%h %l %u %t &quot;%r&quot; %s %b %D %F %I &quot;%{X-Request-Id}i&quot;\"\n         requestAttributesEnabled=\"true\" />\n\n  <!-- requestAttributesEnabled=\"true\" permet d'utiliser l'adresse réelle du\n       client transmise par le reverse proxy, au lieu de l'IP d'Apache.\n       Sans cette option, toutes vos requêtes semblent venir de 127.0.0.1. -->\n\n</Host>\n",
+   "lang": "xml"
+  },
+  {
+   "name": "logging.properties",
+   "path": "extrait de {{CATALINA_HOME}}/conf/logging.properties",
+   "lang": "properties",
+   "content": "# ─────────────────────────────────────────────────────────────────────────────\n#  Extrait de {{CATALINA_HOME}}/conf/logging.properties — {{STUDENT_ID}}\n#\n#  Tomcat journalise avec JULI (java.util.logging). Trois notions :\n#    handler : OÙ l'on écrit (fichier, console)\n#    niveau  : QUOI l'on écrit (SEVERE, WARNING, INFO, FINE, FINEST)\n#    logger  : QUI écrit (un paquet Java)\n#\n#  Sauvegardez avant modification :\n#    sudo cp {{CATALINA_HOME}}/conf/logging.properties{,.avant-tp}\n# ─────────────────────────────────────────────────────────────────────────────\n\nhandlers = 1catalina.org.apache.juli.AsyncFileHandler, \\\n           2localhost.org.apache.juli.AsyncFileHandler, \\\n           java.util.logging.ConsoleHandler\n\n# ── Journal du conteneur : démarrages, déploiements, erreurs de configuration\n1catalina.org.apache.juli.AsyncFileHandler.level = FINE\n1catalina.org.apache.juli.AsyncFileHandler.directory = ${catalina.base}/logs\n1catalina.org.apache.juli.AsyncFileHandler.prefix = catalina.\n1catalina.org.apache.juli.AsyncFileHandler.maxDays = 14\n\n# ── Journal des applications déployées sur ce host\n2localhost.org.apache.juli.AsyncFileHandler.level = FINE\n2localhost.org.apache.juli.AsyncFileHandler.directory = ${catalina.base}/logs\n2localhost.org.apache.juli.AsyncFileHandler.prefix = localhost.\n2localhost.org.apache.juli.AsyncFileHandler.maxDays = 14\n\n# ── Console : tout ce qui part dans catalina.out\n#    C'est là que tombent les System.out de l'application et les piles\n#    d'appels non capturées. Donc : c'est le fichier le plus important du TP.\njava.util.logging.ConsoleHandler.level = FINE\njava.util.logging.ConsoleHandler.formatter = org.apache.juli.OneLineFormatter\n\n# ── Niveau par défaut. INFO est le bon réglage.\n#    FINE et FINEST peuvent produire plusieurs gigaoctets par heure sur un\n#    serveur chargé : l'outil d'observation devient alors la cause de\n#    l'incident. Si vous devez détailler, faites-le sur UN logger précis,\n#    notez l'heure, et retirez-le dès l'investigation terminée.\n.level = INFO\n\norg.apache.catalina.startup.level = INFO\norg.apache.catalina.core.ContainerBase.[Catalina].[localhost].level = INFO\n# Diagnostic ponctuel, à retirer après usage :\n# org.apache.catalina.realm.level = FINE\n"
+  },
+  {
+   "name": "tomcat",
+   "path": "/etc/logrotate.d/tomcat",
+   "lang": "bash",
+   "content": "# ─────────────────────────────────────────────────────────────────────────────\n#  /etc/logrotate.d/tomcat — rotation de catalina.out ({{STUDENT_ID}})\n#\n#  catalina.out n'est PAS rotaté par Tomcat : c'est une simple redirection de\n#  la sortie standard. Sur un serveur oublié, ce fichier atteint couramment\n#  plusieurs gigaoctets et finit par remplir le disque.\n#\n#  copytruncate est OBLIGATOIRE ici : le processus Java garde le descripteur\n#  de fichier ouvert et n'en rouvrirait pas un nouveau après un renommage.\n# ─────────────────────────────────────────────────────────────────────────────\n{{CATALINA_LOGS}}/catalina.out {\n    daily\n    rotate 14\n    compress\n    delaycompress\n    missingok\n    notifempty\n    copytruncate\n    create 640 {{TOMCAT_USER}} {{TOMCAT_USER}}\n}\n"
+  },
+  {
+   "name": "custom-logs-multiline.yml",
+   "path": "Fleet -> intégration Custom Logs -> Custom configurations",
+   "content": "# ─────────────────────────────────────────────────────────────────────────────\n#  custom-logs-multiline.yml — {{STUDENT_ID}}\n#\n#  À coller dans le champ « Custom configurations » de l'entrée filestream\n#  de l'intégration Custom Logs, dans Fleet.\n#\n#  OBJECTIF : qu'une exception Java de 40 lignes devienne UN document,\n#  et non 40 documents inutilisables dont aucun ne contient l'erreur\n#  complète. Sans ce traitement, le message est séparé de sa cause et\n#  aucune recherche ne fonctionne.\n# ─────────────────────────────────────────────────────────────────────────────\nparsers:\n  - multiline:\n      type: pattern\n      # Une nouvelle entrée de journal COMMENCE par une date « 06-Nov-2026 … ».\n      # On reconnaît le DÉBUT d'un événement plutôt que les lignes de\n      # continuation : c'est plus robuste, car cela ne dépend pas du style\n      # d'indentation de la JVM.\n      pattern: '^\\d{2}-[A-Za-z]{3}-\\d{4}\\s\\d{2}:\\d{2}:\\d{2}'\n      # negate: true -> les lignes qui NE correspondent PAS au motif...\n      negate: true\n      # ...sont rattachées à l'événement précédent.\n      match: after\n      # Garde-fou : au-delà, l'événement est tronqué. Sans plafond, une pile\n      # d'appels pathologique peut produire un document énorme.\n      max_lines: 200\n      # Ferme l'événement si plus rien n'arrive. Sans ce délai, la dernière\n      # erreur avant un silence reste bloquée en attente et n'est jamais\n      # indexée — exactement l'erreur que vous cherchiez.\n      timeout: 5s\n\n# Variante, si les lignes de continuation sont indentées et que le motif de\n# date ne convient pas (par exemple pour un journal applicatif maison) :\n#\n# parsers:\n#   - multiline:\n#       type: pattern\n#       pattern: '^[[:space:]]+(at|\\.{3})|^Caused by:'\n#       negate: false\n#       match: after\n",
+   "lang": "yaml"
+  },
+  {
+   "name": "jolokia-mappings.yml",
+   "path": "Fleet -> intégration Jolokia -> JMX mappings",
+   "content": "# ─────────────────────────────────────────────────────────────────────────────\n#  jolokia-mappings.yml — métriques JVM et Tomcat de {{STUDENT_ID}}\n#\n#  À reporter dans l'intégration « Jolokia » de la politique {{POLICY}}.\n#  L'agent Jolokia expose les MBeans en HTTP/JSON sur 127.0.0.1:{{JOLOKIA_PORT}}\n#  (voir la ligne -javaagent de setenv.sh).\n#\n#  Les noms de champs cibles sont CHOISIS ICI : c'est vous qui décidez du\n#  vocabulaire. Gardez-le stable, vos dashboards en dépendent.\n#\n#  À VÉRIFIER : les noms exacts des options de l'intégration Jolokia\n#  (namespace, hosts, jmx.mappings) dépendent de la version installée.\n#  Ouvrez l'intégration dans Fleet et comparez avant de coller.\n# ─────────────────────────────────────────────────────────────────────────────\n- namespace: \"jvm\"\n  hosts: [\"http://127.0.0.1:{{JOLOKIA_PORT}}/jolokia\"]\n  period: 10s\n  jmx.mappings:\n\n    # ── Mémoire : heap et hors tas ──────────────────────────────────────────\n    #  -Xmx ne borne QUE la heap. La mémoire réelle du processus vaut\n    #  heap + metaspace + code cache + piles de threads + buffers natifs,\n    #  soit couramment 30 à 50 % de plus. C'est l'explication de l'OOMKilled\n    #  du chapitre 3.\n    - mbean: \"java.lang:type=Memory\"\n      attributes:\n        - { attr: \"HeapMemoryUsage\", field: \"memory.heap\" }\n        - { attr: \"NonHeapMemoryUsage\", field: \"memory.non_heap\" }\n\n    # ── Ramasse-miettes : ce qui compte est le TEMPS, pas le nombre ─────────\n    #  500 minor GC par minute totalisant 300 ms, c'est sain.\n    #  3 full GC par minute totalisant 40 s, c'est une application à l'arrêt.\n    - mbean: \"java.lang:type=GarbageCollector,name=*\"\n      attributes:\n        - { attr: \"CollectionCount\", field: \"gc.count\" }\n        - { attr: \"CollectionTime\", field: \"gc.time_ms\" }\n\n    # ── Threads de la JVM : une croissance monotone est une fuite ───────────\n    - mbean: \"java.lang:type=Threading\"\n      attributes:\n        - { attr: \"ThreadCount\", field: \"threads.count\" }\n        - { attr: \"PeakThreadCount\", field: \"threads.peak\" }\n        - { attr: \"DaemonThreadCount\", field: \"threads.daemon\" }\n\n    # ── CPU du processus ────────────────────────────────────────────────────\n    - mbean: \"java.lang:type=OperatingSystem\"\n      attributes:\n        - { attr: \"ProcessCpuLoad\", field: \"cpu.process_load\" }\n        - { attr: \"SystemLoadAverage\", field: \"cpu.system_load_avg\" }\n\n    # ── Pool de threads du connecteur Tomcat ────────────────────────────────\n    #  currentThreadsBusy qui atteint maxThreads ET un CPU bas = les threads\n    #  ATTENDENT (base de données, verrou), ils ne travaillent pas.\n    #  Augmenter maxThreads aggraverait la situation.\n    - mbean: 'Catalina:type=ThreadPool,name=\"http-nio-{{TOMCAT_PORT}}\"'\n      attributes:\n        - { attr: \"maxThreads\", field: \"tomcat.threads.max\" }\n        - { attr: \"currentThreadCount\", field: \"tomcat.threads.current\" }\n        - { attr: \"currentThreadsBusy\", field: \"tomcat.threads.busy\" }\n        - { attr: \"connectionCount\", field: \"tomcat.connections\" }\n\n    # ── Compteurs globaux de requêtes du connecteur ─────────────────────────\n    - mbean: 'Catalina:type=GlobalRequestProcessor,name=\"http-nio-{{TOMCAT_PORT}}\"'\n      attributes:\n        - { attr: \"requestCount\", field: \"tomcat.requests.count\" }\n        - { attr: \"errorCount\", field: \"tomcat.requests.errors\" }\n        - { attr: \"processingTime\", field: \"tomcat.requests.time_ms\" }\n        - { attr: \"maxTime\", field: \"tomcat.requests.max_time_ms\" }\n\n    # ── Sessions HTTP de l'application ──────────────────────────────────────\n    #  Croissance sans fin = sessions non expirées, ou robots : cause\n    #  classique de fuite mémoire quand l'application stocke le panier\n    #  complet en session.\n    - mbean: 'Catalina:type=Manager,host=localhost,context=/{{APP_CONTEXT}}'\n      attributes:\n        - { attr: \"activeSessions\", field: \"tomcat.sessions.active\" }\n        - { attr: \"sessionCounter\", field: \"tomcat.sessions.created\" }\n        - { attr: \"expiredSessions\", field: \"tomcat.sessions.expired\" }\n",
+   "lang": "yaml"
+  },
+  {
+   "name": "pipeline-tomcat-access.json",
+   "path": "PUT _ingest/pipeline/logs-shopflow_tomcat.access@custom",
+   "content": "{\n  \"_requete\": \"PUT _ingest/pipeline/logs-shopflow_tomcat.access@custom\",\n  \"description\": \"ShopFlow {{STUDENT_ID}} — journal d'accès Tomcat : %D est en MILLISECONDES\",\n  \"_le_piege\": \"Apache httpd écrit %D en microsecondes, Tomcat en millisecondes. Le facteur de conversion vers event.duration (nanosecondes) est donc 1 000 000 ici, contre 1 000 au chapitre 1. Recopier le pipeline du chapitre 1 sans l'adapter donne des latences mille fois trop faibles — et des dashboards qui disent que tout va bien.\",\n  \"processors\": [\n    {\n      \"grok\": {\n        \"field\": \"message\",\n        \"patterns\": [\n          \"%{IPORHOST:source.address} %{NOTSPACE:_tmp.ident} %{NOTSPACE:_tmp.user} \\\\[%{HTTPDATE:_tmp.ts}\\\\] \\\"%{WORD:http.request.method} %{NOTSPACE:url.original} HTTP/%{NUMBER:http.version}\\\" %{NUMBER:http.response.status_code:long} (?:-|%{NUMBER:http.response.body.bytes:long}) %{NUMBER:_tmp.duration_ms:long} %{NUMBER:_tmp.ttfb_ms:long} %{NOTSPACE:process.thread.name} \\\"%{DATA:shopflow.request_id}\\\"\"\n        ],\n        \"on_failure\": [\n          { \"append\": { \"field\": \"tags\", \"value\": [\"grok_tomcat_access_failed\"] } },\n          { \"set\": { \"field\": \"error.message\", \"value\": \"ligne d'accès Tomcat non reconnue : vérifiez le pattern de l'AccessLogValve\" } }\n        ]\n      }\n    },\n    {\n      \"date\": {\n        \"field\": \"_tmp.ts\",\n        \"target_field\": \"@timestamp\",\n        \"formats\": [\"dd/MMM/yyyy:HH:mm:ss Z\"],\n        \"locale\": \"en\",\n        \"ignore_failure\": true\n      }\n    },\n    {\n      \"script\": {\n        \"description\": \"millisecondes -> nanosecondes (facteur 1 000 000, et non 1 000)\",\n        \"lang\": \"painless\",\n        \"source\": \"if (ctx._tmp != null && ctx._tmp.duration_ms != null) { ctx.event = ctx.event ?: [:]; ctx.event.duration = ctx._tmp.duration_ms * 1000000L; }\",\n        \"ignore_failure\": true\n      }\n    },\n    {\n      \"script\": {\n        \"description\": \"délai avant le premier octet, en nanosecondes\",\n        \"lang\": \"painless\",\n        \"source\": \"if (ctx._tmp != null && ctx._tmp.ttfb_ms != null) { ctx.shopflow = ctx.shopflow ?: [:]; ctx.shopflow.ttfb_ns = ctx._tmp.ttfb_ms * 1000000L; }\",\n        \"ignore_failure\": true\n      }\n    },\n    {\n      \"script\": {\n        \"description\": \"famille de code HTTP\",\n        \"lang\": \"painless\",\n        \"source\": \"if (ctx.http?.response?.status_code != null) { long c = ctx.http.response.status_code; ctx.shopflow = ctx.shopflow ?: [:]; ctx.shopflow.status_class = (c/100) + 'xx'; }\",\n        \"ignore_failure\": true\n      }\n    },\n    { \"set\": { \"field\": \"url.path\", \"value\": \"{{{url.original}}}\", \"override\": false } },\n    { \"set\": { \"field\": \"service.name\", \"value\": \"shopflow-api\", \"override\": false } },\n    { \"set\": { \"field\": \"service.environment\", \"value\": \"{{STUDENT_ID}}\", \"override\": false } },\n    { \"set\": { \"field\": \"event.module\", \"value\": \"tomcat\", \"override\": false } },\n    {\n      \"set\": {\n        \"field\": \"event.outcome\", \"value\": \"failure\",\n        \"if\": \"ctx.http?.response?.status_code != null && ctx.http.response.status_code >= 500\"\n      }\n    },\n    {\n      \"set\": {\n        \"field\": \"event.outcome\", \"value\": \"success\", \"override\": false,\n        \"if\": \"ctx.http?.response?.status_code != null && ctx.http.response.status_code < 400\"\n      }\n    },\n    { \"remove\": { \"field\": [\"_tmp\", \"message\"], \"ignore_missing\": true } }\n  ],\n  \"on_failure\": [\n    { \"set\": { \"field\": \"error.message\", \"value\": \"{{ _ingest.on_failure_message }}\" } }\n  ]\n}\n",
+   "lang": "json"
+  },
+  {
+   "name": "pipeline-tomcat-catalina.json",
+   "path": "PUT _ingest/pipeline/logs-shopflow_tomcat.catalina@custom",
+   "content": "{\n  \"_requete\": \"PUT _ingest/pipeline/logs-shopflow_tomcat.catalina@custom\",\n  \"description\": \"ShopFlow {{STUDENT_ID}} — parsing du journal catalina de Tomcat vers ECS\",\n  \"processors\": [\n    {\n      \"grok\": {\n        \"field\": \"message\",\n        \"patterns\": [\n          \"%{MONTHDAY:_tmp.day}-%{MONTH:_tmp.month}-%{YEAR:_tmp.year} %{TIME:_tmp.time} %{LOGLEVEL:log.level} \\\\[%{DATA:process.thread.name}\\\\] %{JAVACLASS:log.logger}%{SPACE}%{GREEDYMULTILINE:message}\"\n        ],\n        \"pattern_definitions\": { \"GREEDYMULTILINE\": \"(.|\\\\n)*\" },\n        \"ignore_missing\": true,\n        \"on_failure\": [\n          { \"append\": { \"field\": \"tags\", \"value\": [\"grok_tomcat_failed\"] } }\n        ]\n      }\n    },\n    {\n      \"set\": {\n        \"field\": \"_tmp.ts\",\n        \"value\": \"{{{_tmp.day}}}-{{{_tmp.month}}}-{{{_tmp.year}}} {{{_tmp.time}}}\",\n        \"ignore_empty_value\": true\n      }\n    },\n    {\n      \"date\": {\n        \"field\": \"_tmp.ts\",\n        \"target_field\": \"@timestamp\",\n        \"formats\": [\"dd-MMM-yyyy HH:mm:ss.SSS\", \"dd-MMM-yyyy HH:mm:ss\"],\n        \"timezone\": \"{{TIMEZONE}}\",\n        \"locale\": \"en\",\n        \"ignore_failure\": true\n      }\n    },\n    {\n      \"script\": {\n        \"description\": \"normalise les niveaux JULI vers le vocabulaire ECS\",\n        \"lang\": \"painless\",\n        \"source\": \"if (ctx.log?.level != null) { String l = ctx.log.level.toUpperCase(); if (l == 'SEVERE') { ctx.log.level = 'ERROR'; } else if (l == 'WARNING') { ctx.log.level = 'WARN'; } else if (l == 'FINE' || l == 'FINER' || l == 'FINEST') { ctx.log.level = 'DEBUG'; } }\",\n        \"ignore_failure\": true\n      }\n    },\n    {\n      \"grok\": {\n        \"description\": \"extrait le type et le message de l'exception Java, s'il y en a une\",\n        \"field\": \"message\",\n        \"patterns\": [\"%{JAVACLASS:error.type}: %{DATA:error.message}(\\\\n|$)\"],\n        \"ignore_missing\": true,\n        \"ignore_failure\": true\n      }\n    },\n    { \"set\": { \"field\": \"service.name\", \"value\": \"shopflow-api\", \"override\": false } },\n    { \"set\": { \"field\": \"service.environment\", \"value\": \"{{STUDENT_ID}}\", \"override\": false } },\n    { \"set\": { \"field\": \"event.module\", \"value\": \"tomcat\", \"override\": false } },\n    {\n      \"set\": {\n        \"field\": \"event.outcome\", \"value\": \"failure\",\n        \"if\": \"ctx.log?.level == 'ERROR'\"\n      }\n    },\n    { \"remove\": { \"field\": \"_tmp\", \"ignore_missing\": true } }\n  ],\n  \"on_failure\": [\n    { \"set\": { \"field\": \"error.message\", \"value\": \"{{ _ingest.on_failure_message }}\" } }\n  ]\n}\n",
+   "lang": "json"
+  },
+  {
+   "name": "pipeline-tomcat-simulate.json",
+   "path": "POST .../_simulate — contrôle d'unité obligatoire",
+   "content": "{\n  \"_requete_1\": \"POST _ingest/pipeline/logs-shopflow_tomcat.access@custom/_simulate\",\n  \"_attendu_1\": \"event.duration = 4102000000 (4,102 s en ns) pour la 1re ligne, et 892000000 pour la 2e\",\n  \"docs\": [\n    {\n      \"_source\": {\n        \"message\": \"127.0.0.1 - - [06/Nov/2026:14:13:02 +0100] \\\"GET /{{APP_CONTEXT}}/api/cart HTTP/1.1\\\" 200 184320 4102 12 http-nio-{{TOMCAT_PORT}}-exec-5 \\\"abc123def456\\\"\"\n      }\n    },\n    {\n      \"_source\": {\n        \"message\": \"127.0.0.1 - - [06/Nov/2026:14:05:33 +0100] \\\"GET /{{APP_CONTEXT}}/api/erreur HTTP/1.1\\\" 500 1044 892 8 http-nio-{{TOMCAT_PORT}}-exec-7 \\\"def456ghi789\\\"\"\n      }\n    }\n  ],\n  \"_requete_2\": \"POST _ingest/pipeline/logs-shopflow_tomcat.catalina@custom/_simulate\",\n  \"_attendu_2\": \"log.level = ERROR (et non SEVERE), error.type = java.lang.NullPointerException, message contenant la pile d'appels COMPLÈTE sur plusieurs lignes\",\n  \"_docs_catalina\": [\n    {\n      \"_source\": {\n        \"message\": \"06-Nov-2026 14:12:03.411 SEVERE [http-nio-{{TOMCAT_PORT}}-exec-7] org.apache.catalina.core.StandardWrapperValve.invoke Servlet.service() for servlet [ShopFlowServlet] threw exception\\n\\tjava.lang.NullPointerException: Cannot invoke \\\"String.length()\\\" because \\\"nul\\\" is null\\n\\t\\tat com.novacommerce.shopflow.ShopFlowServlet.erreur(ShopFlowServlet.java:188)\\n\\t\\tat com.novacommerce.shopflow.ShopFlowServlet.doGet(ShopFlowServlet.java:131)\\n\\t\\t... 47 more\"\n      }\n    },\n    {\n      \"_source\": {\n        \"message\": \"06-Nov-2026 09:14:01.004 INFO [main] org.apache.catalina.startup.HostConfig.deployWAR Deployment of web application archive [{{CATALINA_HOME}}/webapps/{{APP_CONTEXT}}.war] has finished in [6 102] ms\"\n      }\n    }\n  ]\n}\n",
+   "lang": "json"
+  },
+  {
+   "name": "ShopFlowServlet.java",
+   "path": "app/ShopFlowServlet.java",
+   "content": "/*\n * ShopFlowServlet.java — application de démonstration ShopFlow (NovaCommerce).\n *\n * Société fictive, boutique fictive, aucune donnée réelle, aucun appel réseau\n * vers l'extérieur. Candidat : {{STUDENT_ID}}\n *\n * Routes exposées (préfixe du contexte : /{{APP_CONTEXT}}) :\n *   GET /health              sonde de supervision (à exclure des mesures)\n *   GET /api/cart            panier ; ?scenario=degrade rend la requête lente et lourde\n *   GET /api/produit         fiche produit\n *   GET /api/lent?ms=N       réponse temporisée de N millisecondes (max 30 000)\n *   GET /api/erreur?type=X   npe | sql | 500\n *   GET /api/fuite?mo=N      retient N Mo NON LIBÉRÉS (fuite mémoire volontaire)\n *   GET /api/reset           libère la mémoire retenue et désactive le mode dégradé\n *   GET /api/db              état du troisième tier : disponibilité et latence\n *                            de PostgreSQL (chapitre 4)\n *   GET /api/commande        parcours complet : vérifie la base puis « enregistre »\n *                            une commande ; 503 si la base est injoignable\n *\n * Compilation : voir build-war.sh (javac + jar, sans Maven ni réseau).\n */\npackage com.novacommerce.shopflow;\n\nimport java.io.IOException;\nimport java.io.PrintWriter;\nimport java.net.InetSocketAddress;\nimport java.net.Socket;\nimport java.time.Instant;\nimport java.util.ArrayList;\nimport java.util.List;\nimport java.util.Random;\n\nimport jakarta.servlet.ServletException;\nimport jakarta.servlet.annotation.WebServlet;\nimport jakarta.servlet.http.HttpServlet;\nimport jakarta.servlet.http.HttpServletRequest;\nimport jakarta.servlet.http.HttpServletResponse;\n\n@WebServlet(urlPatterns = {\"/health\", \"/api/*\"})\npublic class ShopFlowServlet extends HttpServlet {\n\n    private static final long serialVersionUID = 1L;\n\n    /* Collection STATIQUE : support de la fuite mémoire volontaire.\n     * Dans du vrai code, c'est exactement l'erreur à ne pas commettre —\n     * un cache sans politique d'éviction ne libère jamais rien. */\n    private static final List<byte[]> RETENU = new ArrayList<>();\n\n    private static final Random RND = new Random(42);   // graine fixe : reproductible\n    private static volatile boolean MODE_DEGRADE = false;\n\n    /* Journalisation applicative en JSON ECS : exploitable sans aucun parsing.\n     * service.name doit être IDENTIQUE à celui posé sur les logs Apache,\n     * sinon la corrélation entre les deux sources est impossible. */\n    private static void log(String niveau, String message) {\n        System.out.println(\"{\\\"@timestamp\\\":\\\"\" + Instant.now()\n            + \"\\\",\\\"log.level\\\":\\\"\" + niveau\n            + \"\\\",\\\"service.name\\\":\\\"shopflow-api\\\"\"\n            + \",\\\"service.version\\\":\\\"2.4.1\\\"\"\n            + \",\\\"service.environment\\\":\\\"{{STUDENT_ID}}\\\"\"\n            + \",\\\"process.thread.name\\\":\\\"\" + Thread.currentThread().getName() + \"\\\"\"\n            + \",\\\"message\\\":\\\"\" + message.replace(\"\\\"\", \"'\") + \"\\\"}\");\n    }\n\n    private static void repondre(HttpServletResponse rep, int code, String corps)\n            throws IOException {\n        rep.setStatus(code);\n        rep.setContentType(\"application/json; charset=utf-8\");\n        try (PrintWriter out = rep.getWriter()) {\n            out.print(corps);\n        }\n    }\n\n    private static int entier(HttpServletRequest req, String nom, int defaut, int max) {\n        String v = req.getParameter(nom);\n        if (v == null) {\n            return defaut;\n        }\n        try {\n            return Math.min(Integer.parseInt(v), max);\n        } catch (NumberFormatException e) {\n            return defaut;\n        }\n    }\n\n    @Override\n    protected void doGet(HttpServletRequest req, HttpServletResponse rep)\n            throws ServletException, IOException {\n\n        String chemin = req.getServletPath();\n        if (\"/api\".equals(chemin) && req.getPathInfo() != null) {\n            chemin = \"/api\" + req.getPathInfo();\n        } else if (req.getPathInfo() != null) {\n            chemin = chemin + req.getPathInfo();\n        }\n\n        /* Identifiant de corrélation injecté par Apache : le pont entre les\n         * logs du reverse proxy et ceux du backend. */\n        String requestId = req.getHeader(\"X-Request-Id\");\n        if (requestId != null) {\n            rep.setHeader(\"X-Request-Id\", requestId);\n        }\n\n        try {\n            if (chemin.equals(\"/health\")) {\n                repondre(rep, 200,\n                    \"{\\\"status\\\":\\\"UP\\\",\\\"service\\\":\\\"shopflow-api\\\",\\\"student\\\":\\\"{{STUDENT_ID}}\\\"}\");\n\n            } else if (chemin.startsWith(\"/api/cart\")) {\n                panier(req, rep);\n\n            } else if (chemin.startsWith(\"/api/produit\")) {\n                dormir(10 + RND.nextInt(30));\n                repondre(rep, 200, \"{\\\"sku\\\":\\\"SKU-123456\\\",\\\"prix\\\":1990}\");\n\n            } else if (chemin.startsWith(\"/api/lent\")) {\n                int ms = entier(req, \"ms\", 1000, 30000);\n                dormir(ms);\n                repondre(rep, 200, \"{\\\"attendu_ms\\\":\" + ms + \"}\");\n\n            } else if (chemin.startsWith(\"/api/erreur\")) {\n                erreur(req, rep);\n\n            } else if (chemin.startsWith(\"/api/fuite\")) {\n                int mo = entier(req, \"mo\", 10, 200);\n                for (int i = 0; i < mo; i++) {\n                    RETENU.add(new byte[1024 * 1024]);\n                }\n                log(\"WARN\", \"memoire retenue volontairement: \" + RETENU.size() + \" Mo\");\n                repondre(rep, 200, \"{\\\"retenu_mo\\\":\" + RETENU.size() + \"}\");\n\n            } else if (chemin.startsWith(\"/api/db\")) {\n                etatBase(rep);\n\n            } else if (chemin.startsWith(\"/api/commande\")) {\n                commande(rep);\n\n            } else if (chemin.startsWith(\"/api/reset\")) {\n                int avant = RETENU.size();\n                RETENU.clear();\n                MODE_DEGRADE = false;\n                log(\"INFO\", \"reset: \" + avant + \" Mo liberes, mode degrade desactive\");\n                repondre(rep, 200, \"{\\\"libere_mo\\\":\" + avant + \"}\");\n\n            } else {\n                repondre(rep, 404, \"{\\\"erreur\\\":\\\"route inconnue\\\"}\");\n            }\n        } catch (RuntimeException e) {\n            /* Imprime une VRAIE pile d'appels multiligne sur stdout :\n             * c'est la matière du traitement multiligne du chapitre. */\n            e.printStackTrace();\n            log(\"ERROR\", e.getClass().getName() + \": \" + e.getMessage());\n            repondre(rep, 500, \"{\\\"erreur\\\":\\\"\" + e.getClass().getSimpleName() + \"\\\"}\");\n        }\n    }\n\n    /* Le panier : cœur du fil rouge. En mode dégradé, la requête n'est pas\n     * bornée : elle charge 142 000 articles, met ~4 s et renvoie ~180 Ko.\n     * Code de retour 200 : INVISIBLE pour une supervision par code de statut. */\n    private void panier(HttpServletRequest req, HttpServletResponse rep) throws IOException {\n        String scenario = req.getParameter(\"scenario\");\n        if (\"degrade\".equals(scenario)) {\n            MODE_DEGRADE = true;\n        } else if (\"normal\".equals(scenario)) {\n            MODE_DEGRADE = false;\n        }\n\n        int articles = MODE_DEGRADE ? 142000 : 3;\n        dormir(MODE_DEGRADE ? 3800 + RND.nextInt(600) : 25 + RND.nextInt(40));\n\n        StringBuilder sb = new StringBuilder(\"{\\\"articles\\\":\").append(articles).append(\",\\\"items\\\":[\");\n        int aEcrire = Math.min(articles, MODE_DEGRADE ? 2000 : 3);\n        for (int i = 0; i < aEcrire; i++) {\n            if (i > 0) {\n                sb.append(',');\n            }\n            sb.append(\"{\\\"sku\\\":\\\"SKU-\").append(100000 + i).append(\"\\\",\\\"qte\\\":1}\");\n        }\n        sb.append(\"]}\");\n\n        if (MODE_DEGRADE) {\n            log(\"WARN\", \"chargement du panier anormalement long: \" + articles + \" articles\");\n        }\n        repondre(rep, 200, sb.toString());\n    }\n\n    private void erreur(HttpServletRequest req, HttpServletResponse rep) throws IOException {\n        String type = req.getParameter(\"type\");\n        if (type == null) {\n            type = \"500\";\n        }\n        switch (type) {\n            case \"npe\":\n                log(\"ERROR\", \"chargement du panier impossible\");\n                String nul = null;\n                nul.length();                                  // NullPointerException\n                break;\n            case \"sql\":\n                log(\"WARN\", \"HikariPool-1 - Connection is not available,\"\n                    + \" request timed out after 30000ms\");\n                throw new IllegalStateException(\n                    \"java.sql.SQLTimeoutException: Timeout after 30000ms\"\n                    + \" of waiting for connection\");\n            default:\n                log(\"ERROR\", \"erreur applicative simulee\");\n                repondre(rep, 500, \"{\\\"erreur\\\":\\\"erreur interne simulee\\\"}\");\n        }\n    }\n\n    /* ── Troisième tier : PostgreSQL (chapitre 4) ───────────────────────────\n     * Le pilote JDBC n'est pas disponible hors ligne sur la plateforme de TP.\n     * On mesure donc la disponibilité et la latence d'ÉTABLISSEMENT DE\n     * CONNEXION TCP vers la base, ce qui suffit à observer les trois tiers et\n     * à reproduire les incidents du projet. L'emplacement d'une vraie requête\n     * SQL est indiqué en commentaire : en production, on mesurerait la durée\n     * d'un « SELECT 1 » avec un pool de connexions.\n     *\n     * Variables d'environnement attendues : DB_HOST, DB_PORT (ConfigMap),\n     * DB_USER et DB_PASSWORD (Secret) — ces deux dernières ne sont pas\n     * utilisées ici, mais elles sont injectées pour montrer le bon usage\n     * d'un Secret. */\n    private static long latenceBase() throws IOException {\n        String hote = System.getenv().getOrDefault(\"DB_HOST\", \"127.0.0.1\");\n        int port = Integer.parseInt(System.getenv().getOrDefault(\"DB_PORT\", \"5432\"));\n        long debut = System.nanoTime();\n        try (Socket s = new Socket()) {\n            s.connect(new InetSocketAddress(hote, port), 2000);\n            // Emplacement d'un « SELECT 1 » avec un vrai pilote JDBC.\n            return (System.nanoTime() - debut) / 1000000L;\n        }\n    }\n\n    private void etatBase(HttpServletResponse rep) throws IOException {\n        try {\n            long ms = latenceBase();\n            if (ms > 500) {\n                log(\"WARN\", \"base de donnees lente: \" + ms + \" ms\");\n            }\n            repondre(rep, 200, \"{\\\"db\\\":\\\"up\\\",\\\"latence_ms\\\":\" + ms + \"}\");\n        } catch (IOException e) {\n            /* La base est injoignable : on renvoie 503 (et non 500). 503 dit\n             * « dépendance indisponible », ce qui oriente immédiatement le\n             * diagnostic vers le tier suivant au lieu de l'application. */\n            log(\"ERROR\", \"base de donnees injoignable: \" + e.getMessage());\n            repondre(rep, 503, \"{\\\"db\\\":\\\"down\\\",\\\"erreur\\\":\\\"connexion impossible\\\"}\");\n        }\n    }\n\n    private void commande(HttpServletResponse rep) throws IOException {\n        try {\n            long ms = latenceBase();\n            dormir(20 + RND.nextInt(40));\n            log(\"INFO\", \"commande enregistree, base a \" + ms + \" ms\");\n            repondre(rep, 201, \"{\\\"commande\\\":\\\"CMD-\" + (100000 + RND.nextInt(899999))\n                + \"\\\",\\\"db_latence_ms\\\":\" + ms + \"}\");\n        } catch (IOException e) {\n            log(\"ERROR\", \"commande refusee: base de donnees injoignable\");\n            repondre(rep, 503, \"{\\\"erreur\\\":\\\"base indisponible\\\"}\");\n        }\n    }\n\n    private static void dormir(long ms) {\n        try {\n            Thread.sleep(ms);\n        } catch (InterruptedException ie) {\n            Thread.currentThread().interrupt();\n        }\n    }\n}\n",
+   "lang": "java"
+  },
+  {
+   "name": "web.xml",
+   "path": "WEB-INF/web.xml",
+   "content": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!--\n  web.xml — descripteur de déploiement de ShopFlow ({{STUDENT_ID}}).\n\n  Le servlet est déclaré par annotation (@WebServlet) : ce fichier ne sert\n  qu'à fixer la version de la spécification et le délai d'expiration des\n  sessions. Un délai trop long fait croître la mémoire sans utilisateurs\n  réels : c'est une cause classique de fuite (chapitre 2, pathologie 1).\n-->\n<web-app xmlns=\"https://jakarta.ee/xml/ns/jakartaee\"\n         xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n         xsi:schemaLocation=\"https://jakarta.ee/xml/ns/jakartaee\n                             https://jakarta.ee/xml/ns/jakartaee/web-app_6_0.xsd\"\n         version=\"6.0\"\n         metadata-complete=\"false\">\n\n  <display-name>ShopFlow API — {{STUDENT_ID}}</display-name>\n\n  <session-config>\n    <session-timeout>15</session-timeout>\n  </session-config>\n\n</web-app>\n",
+   "lang": "xml"
+  },
+  {
+   "name": "logback.xml",
+   "path": "WEB-INF/classes/logback.xml — optionnel",
+   "content": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!--\n  logback.xml — OPTIONNEL. Journalisation applicative en JSON ECS.\n\n  Par défaut, l'application ShopFlow de ce TP écrit déjà du JSON ECS sur la\n  sortie standard (méthode log() du servlet) : ce JSON arrive dans\n  catalina.out et est collecté sans parsing. Ce fichier n'est donc PAS\n  nécessaire pour réaliser le chapitre.\n\n  Il décrit la mise en œuvre que l'on retient en production, quand on\n  maîtrise le code. Pour l'activer, il faut ajouter trois JAR dans\n  WEB-INF/lib : logback-classic, logback-core et logback-ecs-encoder\n  (dépendance Maven co.elastic.logging:logback-ecs-encoder).\n  Sans ces JAR, ce fichier est simplement ignoré.\n\n  Ce que l'encodeur ECS apporte :\n    - aucun grok à maintenir : les champs arrivent déjà nommés et typés ;\n    - error.stack_trace contient la pile COMPLÈTE : plus de multiligne ;\n    - service.name cohérent avec les logs Apache : corrélation immédiate ;\n    - un MDC.put(\"commande.id\", id) devient un champ requêtable.\n-->\n<configuration>\n\n  <appender name=\"ECS_FILE\" class=\"ch.qos.logback.core.rolling.RollingFileAppender\">\n    <file>{{CATALINA_LOGS}}/shopflow-app.json</file>\n    <rollingPolicy class=\"ch.qos.logback.core.rolling.TimeBasedRollingPolicy\">\n      <fileNamePattern>{{CATALINA_LOGS}}/shopflow-app.%d{yyyy-MM-dd}.json</fileNamePattern>\n      <maxHistory>14</maxHistory>\n    </rollingPolicy>\n    <encoder class=\"co.elastic.logging.logback.EcsEncoder\">\n      <serviceName>shopflow-api</serviceName>\n      <serviceVersion>2.4.1</serviceVersion>\n      <serviceEnvironment>{{STUDENT_ID}}</serviceEnvironment>\n      <includeMarkers>true</includeMarkers>\n      <stackTraceAsArray>false</stackTraceAsArray>\n    </encoder>\n  </appender>\n\n  <root level=\"INFO\">\n    <appender-ref ref=\"ECS_FILE\"/>\n  </root>\n\n  <logger name=\"com.novacommerce.shopflow\" level=\"DEBUG\"/>\n\n</configuration>\n",
+   "lang": "xml"
+  },
+  {
+   "name": "01-heap-saturee.json",
+   "path": "Règle d'alerte — niveau 3",
+   "content": "{\n  \"_nom\": \"heap-saturee-{{STUDENT_ID}}\",\n  \"_niveau\": \"3 — saturation de ressource\",\n  \"_fenetre\": \"15 minutes\",\n  \"_intervalle\": \"3 minutes\",\n  \"_seuil\": \"occupation moyenne de la heap > 90 % sur 15 minutes\",\n  \"_pourquoi_15_minutes\": \"Une heap à 95 % juste AVANT un ramasse-miettes est parfaitement normale. Alerter sur une valeur instantanée produit du bruit en continu. C'est la moyenne sur une fenêtre longue qui a du sens.\",\n  \"_action\": \"Ticket en heures ouvrées, pas de réveil. Diagnostic : la heap APRÈS GC monte-t-elle (fuite) ou se stabilise-t-elle juste sous la limite (sous-dimensionnement) ?\",\n  \"esql\": \"FROM metrics-jolokia.jvm-{{NAMESPACE}} | WHERE @timestamp > NOW() - 15 minutes | WHERE host.name == \\\"{{STUDENT_HOST}}\\\" | STATS utilisee = AVG(jolokia.jvm.memory.heap.used), max_heap = MAX(jolokia.jvm.memory.heap.max) | EVAL occupation_pct = ROUND(utilisee * 100.0 / max_heap, 1) | WHERE occupation_pct > 90 | KEEP occupation_pct, utilisee, max_heap\",\n  \"_a_verifier\": \"Les noms de champs dépendent du mapping que VOUS avez défini dans jolokia-mappings.yml et du préfixe ajouté par l'intégration. Ouvrez un document de metrics-jolokia.jvm-{{NAMESPACE}} dans Discover et relevez le nom réel avant de créer la règle.\",\n  \"_repli_sans_jolokia\": \"Si la collecte JMX n'est pas en place, cette alerte n'est pas réalisable : la seule détection reste l'apparition d'OutOfMemoryError dans les logs (règle 03).\"\n}\n",
+   "lang": "json"
+  },
+  {
+   "name": "02-latence-tomcat.json",
+   "path": "Règle d'alerte — niveau 2",
+   "content": "{\n  \"_nom\": \"latence-p95-tomcat-{{STUDENT_ID}}\",\n  \"_niveau\": \"2 — symptôme proche de l'impact\",\n  \"_fenetre\": \"10 minutes\",\n  \"_intervalle\": \"2 minutes\",\n  \"_seuil\": \"P95 de la durée des requêtes /api/ > 1 seconde\",\n  \"_pourquoi_un_percentile\": \"La moyenne masque la traîne : 95 requêtes à 50 ms et 5 requêtes à 8 s donnent une moyenne de 450 ms, qui paraît acceptable. Le P95 dit la vérité sur les utilisateurs les plus mal servis.\",\n  \"_pourquoi_pas_de_code_erreur\": \"Ce scénario ne produit AUCUNE erreur : code 200 partout. Sans cette règle, la lenteur du fil rouge passe totalement inaperçue.\",\n  \"esql\": \"FROM logs-shopflow_tomcat.access-{{NAMESPACE}} | WHERE @timestamp > NOW() - 10 minutes | WHERE url.original LIKE \\\"*/api/*\\\" | WHERE NOT url.original LIKE \\\"*/health*\\\" | STATS p95_ns = PERCENTILE(event.duration, 95), requetes = COUNT(*) | EVAL p95_ms = ROUND(p95_ns / 1000000.0, 0) | WHERE requetes >= 20 AND p95_ms > 1000 | KEEP p95_ms, requetes\",\n  \"_garde_fou\": \"requetes >= 20 : sans minimum d'événements, trois requêtes lentes la nuit déclenchent l'alerte.\"\n}\n",
+   "lang": "json"
+  },
+  {
+   "name": "03-oom-exception.json",
+   "path": "Règle d'alerte — niveau 2",
+   "content": "{\n  \"_nom\": \"exception-critique-tomcat-{{STUDENT_ID}}\",\n  \"_niveau\": \"2 — symptôme (niveau 1 si le tunnel d'achat est touché)\",\n  \"_fenetre\": \"5 minutes\",\n  \"_intervalle\": \"1 minute\",\n  \"_condition\": \"au moins une occurrence\",\n  \"_pourquoi_seuil_a_un\": \"Une OutOfMemoryError n'a pas de seuil acceptable. Contrairement à un taux d'erreur, une seule occurrence justifie une action : la JVM est dans un état où elle ne peut plus garantir son fonctionnement.\",\n  \"_les_cinq_oom_a_distinguer\": {\n    \"Java heap space\": \"la heap est pleine : fuite, ou -Xmx insuffisant\",\n    \"GC overhead limit exceeded\": \"la JVM n'arrive plus à libérer de mémoire utile : presque toujours une fuite avancée\",\n    \"Metaspace\": \"trop de classes chargées : redéploiements à chaud répétés\",\n    \"unable to create new native thread\": \"limite système de threads — RIEN à voir avec la heap : augmenter -Xmx aggrave le problème\",\n    \"Direct buffer memory\": \"mémoire native hors tas épuisée : régler -XX:MaxDirectMemorySize\"\n  },\n  \"esql\": \"FROM logs-shopflow_tomcat.catalina-{{NAMESPACE}},logs-shopflow_tomcat.app-{{NAMESPACE}} | WHERE @timestamp > NOW() - 5 minutes | WHERE message LIKE \\\"*OutOfMemoryError*\\\" OR message LIKE \\\"*SQLTimeoutException*\\\" OR error.type LIKE \\\"*OutOfMemoryError*\\\" | STATS occurrences = COUNT(*), derniere = MAX(@timestamp) | WHERE occurrences > 0 | KEEP occurrences, derniere\",\n  \"_repli_dsl\": {\n    \"index\": [\"logs-shopflow_tomcat.catalina-{{NAMESPACE}}\"],\n    \"query\": {\n      \"bool\": {\n        \"filter\": [ { \"range\": { \"@timestamp\": { \"gte\": \"now-5m\" } } } ],\n        \"should\": [\n          { \"match_phrase\": { \"message\": \"OutOfMemoryError\" } },\n          { \"match_phrase\": { \"message\": \"SQLTimeoutException\" } }\n        ],\n        \"minimum_should_match\": 1\n      }\n    },\n    \"_condition\": \"nombre de documents > 0\"\n  }\n}\n",
+   "lang": "json"
+  },
+  {
+   "name": "04-deploiement-echec.json",
+   "path": "Règle d'alerte — niveau 2",
+   "content": "{\n  \"_nom\": \"deploiement-echec-{{STUDENT_ID}}\",\n  \"_niveau\": \"2 — symptôme, et surtout ÉVÉNEMENT de contexte\",\n  \"_fenetre\": \"10 minutes\",\n  \"_intervalle\": \"2 minutes\",\n  \"_condition\": \"au moins une occurrence\",\n  \"_pourquoi\": \"Un déploiement est un événement. Toute dégradation qui commence à la minute d'un déploiement a une cause très probable : ce déploiement. Journaliser et alerter sur les déploiements — réussis comme échoués — fait gagner un temps considérable en incident.\",\n  \"_action\": \"Alerte vers l'équipe qui déploie, pas vers l'astreinte : l'échec de déploiement d'une application ne signifie pas que le service est tombé. Le script de scénario du chapitre démontre précisément cela.\",\n  \"esql\": \"FROM logs-shopflow_tomcat.catalina-{{NAMESPACE}} | WHERE @timestamp > NOW() - 10 minutes | WHERE message LIKE \\\"*Parse error in application web.xml*\\\" OR message LIKE \\\"*Error deploying web application*\\\" OR message LIKE \\\"*FAIL - Deployed application*\\\" | STATS echecs = COUNT(*) | WHERE echecs > 0 | KEEP echecs\",\n  \"_variante_informative\": {\n    \"_but\": \"Tracer TOUS les déploiements, réussis compris, dans un index dédié — pour les superposer aux courbes de latence.\",\n    \"esql\": \"FROM logs-shopflow_tomcat.catalina-{{NAMESPACE}} | WHERE @timestamp > NOW() - 10 minutes | WHERE message LIKE \\\"*Deployment of web application*has finished*\\\" | STATS deploiements = COUNT(*) | WHERE deploiements > 0 | KEEP deploiements\"\n  }\n}\n",
+   "lang": "json"
+  }
+ ]
+};
+
+/* ---------- utilitaires ---------- */
+const $  = (s, r) => (r || document).querySelector(s);
+const el = (t, a, txt) => { const n = document.createElement(t);
+  if (a) for (const k in a) n.setAttribute(k, a[k]);
+  if (txt != null) n.textContent = txt; return n; };
+const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+/* ---------- substitution des placeholders ---------- */
+/* Une valeur saisie peut contenir des guillemets (par exemple une clause
+   ES|QL). Injectée telle quelle dans un fichier JSON, elle casserait le
+   document : on échappe donc selon le format du fichier cible. */
+function echappeJson(v) {
+  return String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"')
+    .replace(/\n/g, "\\n").replace(/\r/g, "\\r").replace(/\t/g, "\\t");
+}
+function substitue(texte, vals, format) {
+  return String(texte).replace(/\{\{([A-Z0-9_]+)\}\}/g, (m, k) => {
+    if (!Object.prototype.hasOwnProperty.call(vals, k)) return m;
+    return format === "json" ? echappeJson(vals[k]) : vals[k];
+  });
+}
+/* Les valeurs dérivées peuvent dépendre les unes des autres : on résout par passes. */
+function resout(vals, derived) {
+  const out = Object.assign({}, vals);
+  for (let passe = 0; passe < 6; passe++) {
+    let change = false;
+    for (const k in derived) {
+      const v = substitue(derived[k], out);
+      if (out[k] !== v) { out[k] = v; change = true; }
+    }
+    if (!change) break;
+  }
+  return out;
+}
+
+/* ---------- coloration simple ---------- */
+const COMMENT = { bash:/^\s*#/, yaml:/^\s*#/, properties:/^\s*[#!]/, apache:/^\s*#/,
+                  sql:/^\s*(#|\/\/|--)/, java:/^\s*(\/\/|\*|\/\*)/, xml:null, json:null, text:null };
+const MOTS = {
+  bash:/\b(if|then|else|elif|fi|for|while|do|done|case|esac|in|function|return|local|export|set|echo|exit|sudo|curl|systemctl|kubectl|cd|sleep|source)\b/g,
+  yaml:/^(\s*(?:-\s+)?)([A-Za-z0-9_.\/-]+)(:)/gm,
+  apache:/^(\s*)(&lt;\/?[A-Za-z]+|[A-Z][A-Za-z]+)\b/gm,
+  sql:/\b(FROM|WHERE|EVAL|STATS|KEEP|SORT|LIMIT|BY|AND|OR|NOT|CASE|COUNT|SUM|ROUND|NOW|IS|NULL|LIKE|IN|DATE_TRUNC|PERCENTILE|DROP|RENAME)\b/g,
+  java:/\b(public|private|static|final|class|void|new|return|if|else|for|while|try|catch|throw|throws|import|package|int|long|String|boolean)\b/g
+};
+function colorise(code, lang) {
+  const cl = COMMENT[lang];
+  const lignes = esc(code).split("\n").map(l => {
+    if (cl && cl.test(l)) return '<span class="tc">' + l + "</span>";
+    let o = l;
+    o = o.replace(/("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/g, '<span class="ts">$1</span>');
+    if (lang === "json")  o = o.replace(/\b(true|false|null)\b/g, '<span class="tk">$1</span>');
+    if (lang === "xml")   o = o.replace(/(&lt;\/?[A-Za-z!?][\w:.-]*)/g, '<span class="tg">$1</span>');
+    if (lang === "yaml")  o = o.replace(MOTS.yaml, '$1<span class="tg">$2</span>$3');
+    if (lang === "apache")o = o.replace(MOTS.apache, '$1<span class="tg">$2</span>');
+    if (MOTS[lang] && lang !== "yaml" && lang !== "apache") o = o.replace(MOTS[lang], '<span class="tk">$1</span>');
+    o = o.replace(/(^|[\s:=(,[])(\d+(?:\.\d+)?)\b/g, '$1<span class="tn">$2</span>');
+    return o;
+  });
+  return lignes.join("\n");
+}
+
+/* ---------- copier / télécharger ---------- */
+function copier(texte, btn) {
+  const fini = ok => { const av = btn.textContent;
+    btn.textContent = ok ? "Copié ✓" : "Échec"; setTimeout(() => { btn.textContent = av; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(texte).then(() => fini(true), () => fini(secours(texte)));
+  } else { fini(secours(texte)); }
+}
+function secours(texte) {                       /* presse-papier indisponible (iframe, http) */
+  const ta = el("textarea"); ta.value = texte;
+  ta.setAttribute("style", "position:fixed;top:-1000px;left:0;opacity:0");
+  document.body.appendChild(ta); ta.select();
+  let ok = false; try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+  document.body.removeChild(ta); return ok;
+}
+function telecharger(nom, texte, btn) {
+  try {
+    const b = new Blob([texte], { type: "text/plain;charset=utf-8" });
+    const u = URL.createObjectURL(b);
+    const a = el("a", { href: u, download: nom });
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(u), 4000);
+  } catch (e) {
+    btn.textContent = "Bloqué — utilisez Copier";
+    setTimeout(() => { btn.textContent = "Télécharger"; }, 2600);
+  }
+}
+
+/* ---------- construction du formulaire ---------- */
+function champs() {
+  const hote = $("#t-fields");
+  PAYLOAD.fields.forEach(f => {
+    const box = el("div");
+    const lab = el("label", { for: "f-" + f.key }, f.label);
+    if (f.required) lab.appendChild(el("span", { class: "req" }, " *"));
+    box.appendChild(lab);
+    let inp;
+    if (f.type === "select") {
+      inp = el("select", { id: "f-" + f.key });
+      (f.options || []).forEach(o => inp.appendChild(el("option", { value: o }, o)));
+      if (f.default) inp.value = f.default;
+    } else {
+      inp = el("input", { id: "f-" + f.key, type: f.type === "password" ? "password" : "text",
+        value: f.default || "", placeholder: f.placeholder || "", autocomplete: "off",
+        spellcheck: "false" });
+    }
+    inp.dataset.key = f.key;
+    box.appendChild(inp);
+    if (f.help) box.appendChild(el("p", { class: "help" }, f.help));
+    box.appendChild(el("p", { class: "err", id: "e-" + f.key }));
+    hote.appendChild(box);
+  });
+}
+function constantes() {
+  const tb = $("#t-cst");
+  PAYLOAD.constants.forEach(c => {
+    const tr = el("tr");
+    tr.appendChild(el("th", null, c.label));
+    const td = el("td"); td.appendChild(el("code", null, c.value));
+    if (c.note) { td.appendChild(document.createElement("br"));
+      td.appendChild(el("span", { class: "help" }, c.note)); }
+    tr.appendChild(td); tb.appendChild(tr);
+  });
+}
+
+/* ---------- validation ---------- */
+function valide() {
+  let ok = true; const vals = {};
+  PAYLOAD.fields.forEach(f => {
+    const inp = $("#f-" + f.key), zone = $("#e-" + f.key);
+    const v = (inp.value || "").trim();
+    let msg = "";
+    if (f.required && !v) msg = "Champ obligatoire.";
+    else if (v && f.pattern && !new RegExp(f.pattern).test(v)) msg = f.error || "Format invalide.";
+    zone.textContent = msg;
+    inp.setAttribute("aria-invalid", msg ? "true" : "false");
+    if (msg) ok = false;
+    vals[f.key] = v;
+  });
+  return ok ? vals : null;
+}
+
+/* ---------- rendu ---------- */
+function bloc(titre, chemin, contenu, lang) {
+  const b = el("div", { class: "blk" });
+  const h = el("header");
+  const g = el("div");
+  g.appendChild(el("h3", null, titre));
+  if (chemin) g.appendChild(el("div", { class: "path" }, chemin));
+  h.appendChild(g);
+  const btns = el("div", { class: "btns" });
+  const bc = el("button", { type: "button", class: "sm" }, "Copier");
+  bc.addEventListener("click", () => copier(contenu, bc));
+  const bt = el("button", { type: "button", class: "sm" }, "Télécharger");
+  bt.addEventListener("click", () => telecharger(titre, contenu, bt));
+  btns.appendChild(bc); btns.appendChild(bt);
+  h.appendChild(btns); b.appendChild(h);
+  const pre = el("pre"); pre.innerHTML = colorise(contenu, lang || "text");
+  b.appendChild(pre); return b;
+}
+function genere() {
+  const brut = valide();
+  const msg = $("#t-msg");
+  if (!brut) { msg.className = "msg bad";
+    msg.textContent = "Corrigez les champs signalés avant de générer."; return; }
+  const vals = resout(Object.assign({}, PAYLOAD.fixed, brut), PAYLOAD.derived);
+
+  const recap = $("#t-recap"); recap.textContent = "";
+  recap.appendChild(el("strong", null, "Valeurs appliquées"));
+  const ul = el("div", { class: "rec" });
+  (PAYLOAD.recap || []).forEach(k => {
+    if (vals[k] != null && vals[k] !== "") ul.appendChild(el("div", null, k + " = " + vals[k]));
+  });
+  recap.appendChild(ul);
+
+  const zone = $("#t-blocks"); zone.textContent = "";
+  (PAYLOAD.commands || []).forEach(c =>
+    zone.appendChild(bloc(c.name, c.title || "",
+      substitue(c.content, vals, c.lang), c.lang)));
+  (PAYLOAD.files || []).forEach(f =>
+    zone.appendChild(bloc(f.name, substitue(f.path || "", vals),
+      substitue(f.content, vals, f.lang), f.lang)));
+
+  $("#t-out").classList.remove("hidden");
+  msg.className = "msg ok";
+  msg.textContent = (PAYLOAD.files || []).length + " fichier(s) et " +
+                    (PAYLOAD.commands || []).length + " bloc(s) de commandes générés.";
+  /* scrollIntoView n'existe pas dans tous les contextes d'intégration
+     (certaines iframes restreintes) : on ne tombe pas pour autant. */
+  const sortie = $("#t-out");
+  if (typeof sortie.scrollIntoView === "function") {
+    sortie.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
+/* ---------- démarrage ---------- */
+$("#t-titre").textContent = PAYLOAD.chapitre;
+document.title = PAYLOAD.chapitre;
+$("#t-intro").textContent = PAYLOAD.intro || "";
+constantes(); champs();
+$("#t-gen").addEventListener("click", genere);
+$("#t-reset").addEventListener("click", () => {
+  $("#t-form").reset();
+  PAYLOAD.fields.forEach(f => { $("#e-" + f.key).textContent = "";
+    $("#f-" + f.key).setAttribute("aria-invalid", "false"); });
+  $("#t-out").classList.add("hidden"); $("#t-msg").textContent = "";
+});
+$("#t-form").addEventListener("submit", e => { e.preventDefault(); genere(); });
+$("#t-form").addEventListener("keydown", e => {
+  if (e.key === "Enter" && e.target.tagName !== "TEXTAREA") { e.preventDefault(); genere(); }
+});
+</script>
+</body>
+</html>

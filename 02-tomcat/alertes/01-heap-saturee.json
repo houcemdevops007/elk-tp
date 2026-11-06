@@ -1,0 +1,12 @@
+{
+  "_nom": "heap-saturee-{{STUDENT_ID}}",
+  "_niveau": "3 — saturation de ressource",
+  "_fenetre": "15 minutes",
+  "_intervalle": "3 minutes",
+  "_seuil": "occupation moyenne de la heap > 90 % sur 15 minutes",
+  "_pourquoi_15_minutes": "Une heap à 95 % juste AVANT un ramasse-miettes est parfaitement normale. Alerter sur une valeur instantanée produit du bruit en continu. C'est la moyenne sur une fenêtre longue qui a du sens.",
+  "_action": "Ticket en heures ouvrées, pas de réveil. Diagnostic : la heap APRÈS GC monte-t-elle (fuite) ou se stabilise-t-elle juste sous la limite (sous-dimensionnement) ?",
+  "esql": "FROM metrics-jolokia.jvm-{{NAMESPACE}} | WHERE @timestamp > NOW() - 15 minutes | WHERE host.name == \"{{STUDENT_HOST}}\" | STATS utilisee = AVG(jolokia.jvm.memory.heap.used), max_heap = MAX(jolokia.jvm.memory.heap.max) | EVAL occupation_pct = ROUND(utilisee * 100.0 / max_heap, 1) | WHERE occupation_pct > 90 | KEEP occupation_pct, utilisee, max_heap",
+  "_a_verifier": "Les noms de champs dépendent du mapping que VOUS avez défini dans jolokia-mappings.yml et du préfixe ajouté par l'intégration. Ouvrez un document de metrics-jolokia.jvm-{{NAMESPACE}} dans Discover et relevez le nom réel avant de créer la règle.",
+  "_repli_sans_jolokia": "Si la collecte JMX n'est pas en place, cette alerte n'est pas réalisable : la seule détection reste l'apparition d'OutOfMemoryError dans les logs (règle 03)."
+}

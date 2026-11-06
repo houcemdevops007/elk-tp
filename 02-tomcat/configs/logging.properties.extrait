@@ -1,0 +1,45 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  Extrait de {{CATALINA_HOME}}/conf/logging.properties — {{STUDENT_ID}}
+#
+#  Tomcat journalise avec JULI (java.util.logging). Trois notions :
+#    handler : OÙ l'on écrit (fichier, console)
+#    niveau  : QUOI l'on écrit (SEVERE, WARNING, INFO, FINE, FINEST)
+#    logger  : QUI écrit (un paquet Java)
+#
+#  Sauvegardez avant modification :
+#    sudo cp {{CATALINA_HOME}}/conf/logging.properties{,.avant-tp}
+# ─────────────────────────────────────────────────────────────────────────────
+
+handlers = 1catalina.org.apache.juli.AsyncFileHandler, \
+           2localhost.org.apache.juli.AsyncFileHandler, \
+           java.util.logging.ConsoleHandler
+
+# ── Journal du conteneur : démarrages, déploiements, erreurs de configuration
+1catalina.org.apache.juli.AsyncFileHandler.level = FINE
+1catalina.org.apache.juli.AsyncFileHandler.directory = ${catalina.base}/logs
+1catalina.org.apache.juli.AsyncFileHandler.prefix = catalina.
+1catalina.org.apache.juli.AsyncFileHandler.maxDays = 14
+
+# ── Journal des applications déployées sur ce host
+2localhost.org.apache.juli.AsyncFileHandler.level = FINE
+2localhost.org.apache.juli.AsyncFileHandler.directory = ${catalina.base}/logs
+2localhost.org.apache.juli.AsyncFileHandler.prefix = localhost.
+2localhost.org.apache.juli.AsyncFileHandler.maxDays = 14
+
+# ── Console : tout ce qui part dans catalina.out
+#    C'est là que tombent les System.out de l'application et les piles
+#    d'appels non capturées. Donc : c'est le fichier le plus important du TP.
+java.util.logging.ConsoleHandler.level = FINE
+java.util.logging.ConsoleHandler.formatter = org.apache.juli.OneLineFormatter
+
+# ── Niveau par défaut. INFO est le bon réglage.
+#    FINE et FINEST peuvent produire plusieurs gigaoctets par heure sur un
+#    serveur chargé : l'outil d'observation devient alors la cause de
+#    l'incident. Si vous devez détailler, faites-le sur UN logger précis,
+#    notez l'heure, et retirez-le dès l'investigation terminée.
+.level = INFO
+
+org.apache.catalina.startup.level = INFO
+org.apache.catalina.core.ContainerBase.[Catalina].[localhost].level = INFO
+# Diagnostic ponctuel, à retirer après usage :
+# org.apache.catalina.realm.level = FINE

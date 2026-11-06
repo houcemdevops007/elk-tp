@@ -1,0 +1,66 @@
+{
+  "_requete": "PUT _ingest/pipeline/logs-shopflow_tomcat.catalina@custom",
+  "description": "ShopFlow {{STUDENT_ID}} — parsing du journal catalina de Tomcat vers ECS",
+  "processors": [
+    {
+      "grok": {
+        "field": "message",
+        "patterns": [
+          "%{MONTHDAY:_tmp.day}-%{MONTH:_tmp.month}-%{YEAR:_tmp.year} %{TIME:_tmp.time} %{LOGLEVEL:log.level} \\[%{DATA:process.thread.name}\\] %{JAVACLASS:log.logger}%{SPACE}%{GREEDYMULTILINE:message}"
+        ],
+        "pattern_definitions": { "GREEDYMULTILINE": "(.|\\n)*" },
+        "ignore_missing": true,
+        "on_failure": [
+          { "append": { "field": "tags", "value": ["grok_tomcat_failed"] } }
+        ]
+      }
+    },
+    {
+      "set": {
+        "field": "_tmp.ts",
+        "value": "{{{_tmp.day}}}-{{{_tmp.month}}}-{{{_tmp.year}}} {{{_tmp.time}}}",
+        "ignore_empty_value": true
+      }
+    },
+    {
+      "date": {
+        "field": "_tmp.ts",
+        "target_field": "@timestamp",
+        "formats": ["dd-MMM-yyyy HH:mm:ss.SSS", "dd-MMM-yyyy HH:mm:ss"],
+        "timezone": "{{TIMEZONE}}",
+        "locale": "en",
+        "ignore_failure": true
+      }
+    },
+    {
+      "script": {
+        "description": "normalise les niveaux JULI vers le vocabulaire ECS",
+        "lang": "painless",
+        "source": "if (ctx.log?.level != null) { String l = ctx.log.level.toUpperCase(); if (l == 'SEVERE') { ctx.log.level = 'ERROR'; } else if (l == 'WARNING') { ctx.log.level = 'WARN'; } else if (l == 'FINE' || l == 'FINER' || l == 'FINEST') { ctx.log.level = 'DEBUG'; } }",
+        "ignore_failure": true
+      }
+    },
+    {
+      "grok": {
+        "description": "extrait le type et le message de l'exception Java, s'il y en a une",
+        "field": "message",
+        "patterns": ["%{JAVACLASS:error.type}: %{DATA:error.message}(\\n|$)"],
+        "ignore_missing": true,
+        "ignore_failure": true
+      }
+    },
+    { "set": { "field": "service.name", "value": "shopflow-api", "override": false } },
+    { "set": { "field": "service.environment", "value": "{{STUDENT_ID}}", "override": false } },
+    { "set": { "field": "event.module", "value": "tomcat", "override": false } },
+    {
+      "set": {
+        "field": "event.outcome", "value": "failure",
+        "if": "ctx.log?.level == 'ERROR'"
+      }
+    },
+    { "remove": { "field": "_tmp", "ignore_missing": true } }
+  ],
+  "on_failure": [
+    { "set": { "field": "error.message", "value": "{{ _ingest.on_failure_message }}" } }
+  ]
+}

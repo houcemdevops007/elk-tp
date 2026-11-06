@@ -1,0 +1,72 @@
+{
+  "_requete": "PUT _ingest/pipeline/logs-shopflow_tomcat.access@custom",
+  "description": "ShopFlow {{STUDENT_ID}} — journal d'accès Tomcat : %D est en MILLISECONDES",
+  "_le_piege": "Apache httpd écrit %D en microsecondes, Tomcat en millisecondes. Le facteur de conversion vers event.duration (nanosecondes) est donc 1 000 000 ici, contre 1 000 au chapitre 1. Recopier le pipeline du chapitre 1 sans l'adapter donne des latences mille fois trop faibles — et des dashboards qui disent que tout va bien.",
+  "processors": [
+    {
+      "grok": {
+        "field": "message",
+        "patterns": [
+          "%{IPORHOST:source.address} %{NOTSPACE:_tmp.ident} %{NOTSPACE:_tmp.user} \\[%{HTTPDATE:_tmp.ts}\\] \"%{WORD:http.request.method} %{NOTSPACE:url.original} HTTP/%{NUMBER:http.version}\" %{NUMBER:http.response.status_code:long} (?:-|%{NUMBER:http.response.body.bytes:long}) %{NUMBER:_tmp.duration_ms:long} %{NUMBER:_tmp.ttfb_ms:long} %{NOTSPACE:process.thread.name} \"%{DATA:shopflow.request_id}\""
+        ],
+        "on_failure": [
+          { "append": { "field": "tags", "value": ["grok_tomcat_access_failed"] } },
+          { "set": { "field": "error.message", "value": "ligne d'accès Tomcat non reconnue : vérifiez le pattern de l'AccessLogValve" } }
+        ]
+      }
+    },
+    {
+      "date": {
+        "field": "_tmp.ts",
+        "target_field": "@timestamp",
+        "formats": ["dd/MMM/yyyy:HH:mm:ss Z"],
+        "locale": "en",
+        "ignore_failure": true
+      }
+    },
+    {
+      "script": {
+        "description": "millisecondes -> nanosecondes (facteur 1 000 000, et non 1 000)",
+        "lang": "painless",
+        "source": "if (ctx._tmp != null && ctx._tmp.duration_ms != null) { ctx.event = ctx.event ?: [:]; ctx.event.duration = ctx._tmp.duration_ms * 1000000L; }",
+        "ignore_failure": true
+      }
+    },
+    {
+      "script": {
+        "description": "délai avant le premier octet, en nanosecondes",
+        "lang": "painless",
+        "source": "if (ctx._tmp != null && ctx._tmp.ttfb_ms != null) { ctx.shopflow = ctx.shopflow ?: [:]; ctx.shopflow.ttfb_ns = ctx._tmp.ttfb_ms * 1000000L; }",
+        "ignore_failure": true
+      }
+    },
+    {
+      "script": {
+        "description": "famille de code HTTP",
+        "lang": "painless",
+        "source": "if (ctx.http?.response?.status_code != null) { long c = ctx.http.response.status_code; ctx.shopflow = ctx.shopflow ?: [:]; ctx.shopflow.status_class = (c/100) + 'xx'; }",
+        "ignore_failure": true
+      }
+    },
+    { "set": { "field": "url.path", "value": "{{{url.original}}}", "override": false } },
+    { "set": { "field": "service.name", "value": "shopflow-api", "override": false } },
+    { "set": { "field": "service.environment", "value": "{{STUDENT_ID}}", "override": false } },
+    { "set": { "field": "event.module", "value": "tomcat", "override": false } },
+    {
+      "set": {
+        "field": "event.outcome", "value": "failure",
+        "if": "ctx.http?.response?.status_code != null && ctx.http.response.status_code >= 500"
+      }
+    },
+    {
+      "set": {
+        "field": "event.outcome", "value": "success", "override": false,
+        "if": "ctx.http?.response?.status_code != null && ctx.http.response.status_code < 400"
+      }
+    },
+    { "remove": { "field": ["_tmp", "message"], "ignore_missing": true } }
+  ],
+  "on_failure": [
+    { "set": { "field": "error.message", "value": "{{ _ingest.on_failure_message }}" } }
+  ]
+}

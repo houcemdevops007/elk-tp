@@ -1,0 +1,117 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  20-postgres.yaml — troisième tier : PostgreSQL ({{STUDENT_ID}})
+#
+#  Un StatefulSet, et non un Deployment : une base de données a une identité
+#  et un volume persistants. k3s fournit la StorageClass « local-path » par
+#  défaut, ce qui suffit ici.
+#
+#  La journalisation est configurée pour sortir sur stderr (donc collectée
+#  par le DaemonSet) et pour tracer les requêtes LENTES : c'est ce qui
+#  permettra, pendant l'incident, de dire si la base est lente ou si c'est
+#  le backend qui l'interroge mal.
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: shopflow-db
+  namespace: "{{NAMESPACE}}"
+  labels:
+    app.kubernetes.io/name: shopflow-db
+    app.kubernetes.io/component: database
+    app.kubernetes.io/part-of: shopflow
+spec:
+  selector:
+    app.kubernetes.io/name: shopflow-db
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: shopflow-db
+  namespace: "{{NAMESPACE}}"
+  labels:
+    app.kubernetes.io/name: shopflow-db
+    app.kubernetes.io/component: database
+    app.kubernetes.io/part-of: shopflow
+    app.kubernetes.io/version: "{{PG_VERSION}}"
+spec:
+  serviceName: shopflow-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: shopflow-db
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: shopflow-db
+        app.kubernetes.io/component: database
+        app.kubernetes.io/part-of: shopflow
+        app.kubernetes.io/version: "{{PG_VERSION}}"
+      annotations:
+        co.elastic.logs/enabled: "true"
+    spec:
+      securityContext:
+        fsGroup: 999
+      containers:
+        - name: postgres
+          image: "postgres:{{PG_VERSION}}"
+          args:
+            # Journalisation : sur stderr, donc collectée comme n'importe
+            # quel log de conteneur. logging_collector resterait dans un
+            # fichier du conteneur, invisible pour le DaemonSet.
+            - "-c"
+            - "logging_collector=off"
+            - "-c"
+            - "log_destination=stderr"
+            - "-c"
+            - "log_min_duration_statement=200"   # trace les requêtes > 200 ms
+            - "-c"
+            - "log_connections=on"
+            - "-c"
+            - "log_disconnections=on"
+            - "-c"
+            - "log_line_prefix=%m [%p] %q%u@%d "
+          ports:
+            - name: postgres
+              containerPort: 5432
+          envFrom:
+            - secretRef:
+                name: shopflow-db
+          env:
+            - name: PGDATA
+              # Sous-répertoire obligatoire : initdb refuse un répertoire
+              # non vide, et un volume monté contient toujours lost+found.
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: donnees
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "shopflow", "-d", "shopflow"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "shopflow", "-d", "shopflow"]
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            failureThreshold: 3
+  volumeClaimTemplates:
+    - metadata:
+        name: donnees
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: "{{STORAGE_CLASS}}"
+        resources:
+          requests:
+            storage: 1Gi

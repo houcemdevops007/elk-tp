@@ -1,0 +1,17 @@
+{
+  "_nom": "apache-absent-{{STUDENT_ID}}",
+  "_niveau": "4 — santé de l'observabilité",
+  "_type_de_regle": "Elasticsearch query (variante ES|QL)",
+  "_fenetre": "10 minutes",
+  "_intervalle": "2 minutes",
+  "_condition": "au moins une ligne retournée (la ligne n'existe que si le compte est trop bas)",
+  "_pourquoi": "Sans cette règle, un arrêt d'Apache ou de l'agent rend tous vos dashboards CALMES : le taux de 5xx tombe à zéro, les autres alertes se taisent, et vous concluez que tout va bien.",
+  "_methode": "Mesurez d'abord le volume MINIMAL observé sur 7 jours par tranche de 10 minutes, nuit comprise, puis posez le seuil nettement en dessous. Le 5 ci-dessous suppose la sonde /health interrogée en permanence.",
+  "_test_obligatoire": "sudo systemctl stop apache2 (ou stop elastic-agent), attendre la fenêtre, vérifier le déclenchement, puis redémarrer et vérifier l'extinction. Une alerte d'absence de données jamais testée ne vaut rien.",
+  "esql": "FROM logs-shopflow_apache.access_json-{{NAMESPACE}} | WHERE @timestamp > NOW() - 10 minutes | STATS documents = COUNT(*) | WHERE documents < 5 | KEEP documents",
+  "_variante_agent": {
+    "_nom": "agent-silencieux-{{STUDENT_ID}}",
+    "_but": "Détecter l'agent lui-même, et non la source : complémentaire, pas redondant.",
+    "esql": "FROM metrics-elastic_agent.elastic_agent-* | WHERE @timestamp > NOW() - 10 minutes | WHERE host.name == \"{{STUDENT_HOST}}\" | STATS documents = COUNT(*) | WHERE documents < 1 | KEEP documents"
+  }
+}

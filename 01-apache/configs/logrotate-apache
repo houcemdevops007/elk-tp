@@ -1,0 +1,22 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  /etc/logrotate.d/apache2 — rotation des journaux Apache de {{STUDENT_ID}}
+#
+#  delaycompress est OBLIGATOIRE quand un agent lit ces fichiers : sans elle,
+#  le fichier est renommé ET compressé immédiatement, et l'agent peut perdre
+#  les dernières lignes écrites juste avant la rotation.
+# ─────────────────────────────────────────────────────────────────────────────
+{{APACHE_LOG_DIR}}/*.log {
+        daily
+        missingok
+        rotate 14
+        compress
+        delaycompress
+        notifempty
+        create 640 root adm
+        sharedscripts
+        postrotate
+                if invoke-rc.d apache2 status > /dev/null 2>&1; then \
+                    invoke-rc.d apache2 reload > /dev/null 2>&1; \
+                fi;
+        endscript
+}

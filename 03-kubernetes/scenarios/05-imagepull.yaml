@@ -1,0 +1,48 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  PANNE 5 — ImagePullBackOff ({{STUDENT_ID}})
+#
+#  Le tag d'image n'existe pas. Le pod ne démarre jamais.
+#
+#  Diagnostic attendu :
+#    kubectl -n {{NAMESPACE}} get pods             -> ErrImagePull puis ImagePullBackOff
+#    kubectl -n {{NAMESPACE}} describe pod <pod>   -> « manifest unknown » ou
+#                                                     « not found »
+#
+#  Causes par ordre de fréquence : faute de frappe dans le nom ou le tag,
+#  tag supprimé du registre, registre privé sans imagePullSecrets, registre
+#  injoignable depuis les nœuds, architecture d'image incompatible.
+#
+#  C'est la panne la plus rapide à qualifier : moins de 30 secondes si l'on
+#  sait où regarder. Chronométrez-vous.
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: panne-image
+  namespace: "{{NAMESPACE}}"
+  labels:
+    app.kubernetes.io/name: panne-image
+    efi.formation/scenario: "05-imagepull"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: panne-image
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: panne-image
+        efi.formation/scenario: "05-imagepull"
+    spec:
+      containers:
+        - name: worker
+          # Tag volontairement inexistant.
+          image: "busybox:version-inexistante-42"
+          command: ["/bin/sh", "-c", "sleep 3600"]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi

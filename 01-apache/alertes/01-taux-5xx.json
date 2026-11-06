@@ -1,0 +1,27 @@
+{
+  "_nom": "taux-5xx-apache-{{STUDENT_ID}}",
+  "_niveau": "1 — impact utilisateur",
+  "_type_de_regle": "Elasticsearch query (variante ES|QL)",
+  "_fenetre": "5 minutes",
+  "_intervalle": "1 minute",
+  "_condition": "au moins une ligne retournée",
+  "_regroupement": "aucun (une seule VM par candidat)",
+  "_frequence_action": "au changement d'état, avec action de rétablissement",
+  "_action": "connecteur Index -> alertes-formation-{{STUDENT_ID}}",
+  "_pourquoi_un_ratio": "50 erreurs sur 200 requêtes est grave, 50 sur 500 000 ne l'est pas. Le garde-fou total >= 20 évite qu'une seule erreur sur trois requêtes déclenche l'alerte la nuit.",
+  "esql": "FROM logs-shopflow_apache.access_json-{{NAMESPACE}} | WHERE @timestamp > NOW() - 5 minutes | WHERE url.path LIKE \"/api/*\" | WHERE NOT url.path IN (\"/health\", \"/server-status\") | EVAL mauvaise = CASE(http.response.status_code >= 500, 1, 0) | STATS total = COUNT(*), mauvaises = SUM(mauvaise) | EVAL taux_5xx = ROUND(mauvaises * 100.0 / total, 2) | WHERE total >= 20 AND taux_5xx > 5.0 | KEEP total, mauvaises, taux_5xx",
+  "_repli_dsl": {
+    "_usage": "Si le type de règle ES|QL n'est pas disponible : règle « Elasticsearch query » en DSL, condition « nombre de documents > 10 ». Le ratio est alors perdu : compensez en restreignant la fenêtre à 5 minutes.",
+    "index": ["logs-shopflow_apache.access_json-{{NAMESPACE}}"],
+    "query": {
+      "bool": {
+        "filter": [
+          { "range": { "@timestamp": { "gte": "now-5m" } } },
+          { "range": { "http.response.status_code": { "gte": 500 } } },
+          { "prefix": { "url.path": "/api/" } }
+        ],
+        "must_not": [ { "terms": { "url.path": ["/health", "/server-status"] } } ]
+      }
+    }
+  }
+}

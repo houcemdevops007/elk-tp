@@ -1,0 +1,30 @@
+{
+  "_requete_1": "POST _ingest/pipeline/logs-shopflow_tomcat.access@custom/_simulate",
+  "_attendu_1": "event.duration = 4102000000 (4,102 s en ns) pour la 1re ligne, et 892000000 pour la 2e",
+  "docs": [
+    {
+      "_source": {
+        "message": "127.0.0.1 - - [06/Nov/2026:14:13:02 +0100] \"GET /{{APP_CONTEXT}}/api/cart HTTP/1.1\" 200 184320 4102 12 http-nio-{{TOMCAT_PORT}}-exec-5 \"abc123def456\""
+      }
+    },
+    {
+      "_source": {
+        "message": "127.0.0.1 - - [06/Nov/2026:14:05:33 +0100] \"GET /{{APP_CONTEXT}}/api/erreur HTTP/1.1\" 500 1044 892 8 http-nio-{{TOMCAT_PORT}}-exec-7 \"def456ghi789\""
+      }
+    }
+  ],
+  "_requete_2": "POST _ingest/pipeline/logs-shopflow_tomcat.catalina@custom/_simulate",
+  "_attendu_2": "log.level = ERROR (et non SEVERE), error.type = java.lang.NullPointerException, message contenant la pile d'appels COMPLÈTE sur plusieurs lignes",
+  "_docs_catalina": [
+    {
+      "_source": {
+        "message": "06-Nov-2026 14:12:03.411 SEVERE [http-nio-{{TOMCAT_PORT}}-exec-7] org.apache.catalina.core.StandardWrapperValve.invoke Servlet.service() for servlet [ShopFlowServlet] threw exception\n\tjava.lang.NullPointerException: Cannot invoke \"String.length()\" because \"nul\" is null\n\t\tat com.novacommerce.shopflow.ShopFlowServlet.erreur(ShopFlowServlet.java:188)\n\t\tat com.novacommerce.shopflow.ShopFlowServlet.doGet(ShopFlowServlet.java:131)\n\t\t... 47 more"
+      }
+    },
+    {
+      "_source": {
+        "message": "06-Nov-2026 09:14:01.004 INFO [main] org.apache.catalina.startup.HostConfig.deployWAR Deployment of web application archive [{{CATALINA_HOME}}/webapps/{{APP_CONTEXT}}.war] has finished in [6 102] ms"
+      }
+    }
+  ]
+}

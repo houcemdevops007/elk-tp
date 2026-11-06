@@ -1,0 +1,13 @@
+# Rendu de contrôle, régénérable : python3 tools/render-exemple.py
+.rendu/
+
+# Outils de construction locaux
+node_modules/
+package*.json
+__pycache__/
+*.pyc
+
+# Artefacts de TP produits sur la VM du candidat
+*.war
+build/
+*.hprof

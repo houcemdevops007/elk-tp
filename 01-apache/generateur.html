@@ -1,0 +1,609 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Générateur — Chapitre 1 : logs et métriques Apache</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#ffffff; --ink:#1b1f24; --muted:#5a6472; --line:#dfe3e8;
+    --accent:#1f6feb; --accent-ink:#ffffff; --ok:#0f7b4f; --warn:#8a5a00; --err:#b42318;
+    --code-bg:#f2f4f7; --code-ink:#1b1f24; --tok-com:#6a737d; --tok-str:#0a7b34;
+    --tok-key:#9a3bbd; --tok-num:#b4530a; --tok-tag:#1f6feb;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#14171c; --card:#1b1f25; --ink:#e7ebf0; --muted:#9aa5b1; --line:#2c333c;
+      --accent:#4c8dff; --accent-ink:#0c1016; --ok:#4ad295; --warn:#e0b341; --err:#ff7b72;
+      --code-bg:#11151a; --code-ink:#e7ebf0; --tok-com:#8b949e; --tok-str:#7ee2a8;
+      --tok-key:#d2a8ff; --tok-num:#ffa657; --tok-tag:#79c0ff;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:1040px;margin:0 auto;padding:18px 16px 56px}
+  h1{font-size:1.4rem;margin:.2em 0 .1em}
+  h2{font-size:1.1rem;margin:1.6em 0 .6em;padding-bottom:.3em;border-bottom:1px solid var(--line)}
+  p.sub{color:var(--muted);margin:.2em 0 1.2em}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:0 0 16px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px 16px}
+  label{display:block;font-weight:600;font-size:.86rem;margin:0 0 .25em}
+  .req{color:var(--err)}
+  input,select{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:7px;
+    background:var(--card);color:var(--ink);font:inherit;font-size:.92rem}
+  input:focus,select:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+  input[aria-invalid="true"]{border-color:var(--err);background:rgba(180,35,24,.06)}
+  .help{color:var(--muted);font-size:.78rem;margin:.3em 0 0}
+  .err{color:var(--err);font-size:.78rem;margin:.3em 0 0;font-weight:600}
+  .err:empty,.help:empty{display:none}
+  table.cst{width:100%;border-collapse:collapse;font-size:.86rem}
+  table.cst th,table.cst td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  table.cst th{color:var(--muted);font-weight:600;white-space:nowrap}
+  table.cst td code{font-size:.92em}
+  .actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px}
+  button{font:inherit;font-weight:600;border-radius:7px;border:1px solid var(--line);
+    background:var(--card);color:var(--ink);padding:8px 14px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+  button.sm{padding:4px 10px;font-size:.8rem;font-weight:600}
+  .msg{font-size:.86rem;font-weight:600}
+  .msg.ok{color:var(--ok)} .msg.bad{color:var(--err)}
+  .blk{border:1px solid var(--line);border-radius:9px;margin:0 0 14px;overflow:hidden;background:var(--card)}
+  .blk>header{display:flex;gap:8px;align-items:center;justify-content:space-between;
+    padding:8px 10px;background:var(--code-bg);border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .blk h3{margin:0;font-size:.9rem;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .blk .path{color:var(--muted);font-size:.76rem;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .blk .btns{display:flex;gap:6px}
+  pre{margin:0;padding:12px;overflow-x:auto;background:var(--code-bg);color:var(--code-ink);
+    font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;tab-size:2}
+  .tc{color:var(--tok-com);font-style:italic} .ts{color:var(--tok-str)}
+  .tk{color:var(--tok-key);font-weight:600} .tn{color:var(--tok-num)} .tg{color:var(--tok-tag)}
+  .note{border-left:4px solid var(--warn);background:rgba(224,179,65,.10);
+    border-radius:0 8px 8px 0;padding:10px 12px;font-size:.86rem;margin:0 0 16px}
+  .note.sec{border-left-color:var(--err);background:rgba(180,35,24,.08)}
+  .hidden{display:none}
+  .rec{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.82rem;
+    color:var(--muted);word-break:break-all}
+  footer{color:var(--muted);font-size:.8rem;margin-top:26px;border-top:1px solid var(--line);padding-top:10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 id="t-titre">Générateur — Chapitre 1 : logs et métriques Apache</h1>
+  <p class="sub" id="t-intro"></p>
+
+  <div class="note sec">
+    <strong>Confidentialité.</strong> Cette page fonctionne entièrement dans votre navigateur :
+    aucun appel réseau, aucune donnée enregistrée, aucun cookie. Le token d'enrôlement que vous
+    saisissez n'est jamais pré-rempli et disparaît dès que vous fermez l'onglet.
+  </div>
+
+  <h2>1. Valeurs fixes de la plateforme EFI</h2>
+  <div class="card">
+    <table class="cst"><tbody id="t-cst"></tbody></table>
+  </div>
+
+  <h2>2. Paramètres de votre VM</h2>
+  <div class="card">
+    <form id="t-form" novalidate><div class="grid" id="t-fields"></div></form>
+    <div class="actions">
+      <button type="button" class="primary" id="t-gen">Générer</button>
+      <button type="button" id="t-reset">Réinitialiser</button>
+      <span class="msg" id="t-msg"></span>
+    </div>
+  </div>
+
+  <div id="t-out" class="hidden">
+    <h2>3. Fichiers et commandes générés</h2>
+    <div class="card" id="t-recap"></div>
+    <div id="t-blocks"></div>
+  </div>
+
+  <footer>
+    Khlifi Houcem — Formateur DevSecOps et Cloud · Plateforme EFILearn ·
+    Elastic Observability (version condensée). Générateur autonome, sans dépendance externe.
+  </footer>
+</div>
+
+<script>
+"use strict";
+const PAYLOAD = {
+ "chapitre": "Générateur — Chapitre 1 : logs et métriques Apache",
+ "intro": "Renseignez les paramètres de votre VM : la page produit les fichiers de configuration du chapitre et les commandes à exécuter, avec vos valeurs. Les modèles sont exactement ceux du dossier 01-apache/ du tutoriel.",
+ "constants": [
+  {
+   "label": "Version de la stack",
+   "value": "9.5.5",
+   "note": "La version de l'Elastic Agent doit etre identique a celle du cluster."
+  },
+  {
+   "label": "Cluster Elasticsearch",
+   "value": "efi-elk-training",
+   "note": "elk-es0 172.16.3.50 / elk-es1 172.16.3.51 / elk-es2 172.16.3.52 (master + data, :9200 / :9300)"
+  },
+  {
+   "label": "API Elasticsearch",
+   "value": "https://172.16.3.50:9200"
+  },
+  {
+   "label": "Kibana (elk-kibana0)",
+   "value": "https://172.16.3.53:5601",
+   "note": "Acces candidat par le reverse proxy Nginx : https://elk.efi-academy.com/tp/"
+  },
+  {
+   "label": "Fleet Server (elk-fleet0)",
+   "value": "https://172.16.3.55:8220",
+   "note": "Plan de controle : enrolement, politiques, etat des agents."
+  }
+ ],
+ "fixed": {
+  "ES_VERSION": "9.5.5",
+  "ES_CLUSTER": "efi-elk-training",
+  "ES_URL": "https://172.16.3.50:9200",
+  "ES_URL1": "https://172.16.3.51:9200",
+  "ES_URL2": "https://172.16.3.52:9200",
+  "ES_IP0": "172.16.3.50",
+  "ES_IP1": "172.16.3.51",
+  "ES_IP2": "172.16.3.52",
+  "KIBANA_URL": "https://172.16.3.53:5601",
+  "KIBANA_PUBLIC": "https://elk.efi-academy.com/tp/",
+  "KIBANA_IP": "172.16.3.53",
+  "FLEET_URL": "https://172.16.3.55:8220",
+  "FLEET_IP": "172.16.3.55",
+  "LOGSTASH_BEATS": "172.16.3.54:5044",
+  "LOGSTASH_HTTP": "https://172.16.3.54:8443",
+  "LOGSTASH_IP": "172.16.3.54",
+  "MINIO_URL": "http://172.16.50.10:9000",
+  "EFI_NET": "172.16.0.0/16"
+ },
+ "fields": [
+  {
+   "key": "NUM",
+   "label": "Numéro étudiant",
+   "type": "select",
+   "required": true,
+   "options": [
+    "01",
+    "02",
+    "03",
+    "04",
+    "05",
+    "06",
+    "07",
+    "08",
+    "09",
+    "10",
+    "11",
+    "12",
+    "13",
+    "14",
+    "15",
+    "16",
+    "17",
+    "18",
+    "19",
+    "20"
+   ],
+   "default": "01",
+   "help": "Détermine votre identifiant, votre namespace de data stream, votre politique d'agent et votre espace Kibana."
+  },
+  {
+   "key": "STUDENT_HOST",
+   "label": "Nom d'hôte de la VM",
+   "type": "text",
+   "required": true,
+   "placeholder": "ex. vm-student07",
+   "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$",
+   "error": "Nom d'hôte invalide : minuscules, chiffres et tirets uniquement.",
+   "help": "Exactement la valeur renvoyée par hostname sur votre VM : c'est le host.name de vos documents."
+  },
+  {
+   "key": "STUDENT_IP",
+   "label": "Adresse IP de la VM",
+   "type": "text",
+   "required": true,
+   "placeholder": "ex. 172.16.20.7",
+   "pattern": "^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])$",
+   "error": "Adresse IPv4 invalide.",
+   "help": "Réseau EFI : 172.16.0.0/16."
+  },
+  {
+   "key": "SERVER_NAME",
+   "label": "ServerName du vhost",
+   "type": "text",
+   "required": true,
+   "default": "shopflow.efi-academy.local",
+   "pattern": "^[a-z0-9.-]+$",
+   "error": "Nom de domaine invalide.",
+   "help": "Indicatif : les TP s'adressent à localhost et à l'IP de la VM. Adaptez si le formateur vous donne un nom résolu."
+  },
+  {
+   "key": "APACHE_LOG_DIR",
+   "label": "Répertoire des journaux Apache",
+   "type": "text",
+   "required": true,
+   "default": "/var/log/apache2",
+   "pattern": "^/[^\\s]*[^/\\s]$",
+   "error": "Chemin absolu attendu, sans barre oblique finale.",
+   "help": "Debian et Ubuntu : /var/log/apache2. RHEL, Rocky et Alma : /var/log/httpd."
+  },
+  {
+   "key": "CA_PATH",
+   "label": "Autorité de certification interne",
+   "type": "text",
+   "required": true,
+   "default": "/etc/efi/pki/ca.crt",
+   "pattern": "^/[^\\s]*[^/\\s]$",
+   "error": "Chemin absolu attendu.",
+   "help": "Certificat de la CA interne EFI, à déposer sur la VM. Chemin exact à confirmer avec le formateur."
+  },
+  {
+   "key": "TOMCAT_PORT",
+   "label": "Port du connecteur Tomcat",
+   "type": "text",
+   "required": true,
+   "default": "8080",
+   "pattern": "^[0-9]{2,5}$",
+   "error": "Numéro de port invalide.",
+   "help": "Utilisé par le bloc reverse proxy du vhost, activé au chapitre 2."
+  },
+  {
+   "key": "APP_CONTEXT",
+   "label": "Contexte de l'application Tomcat",
+   "type": "text",
+   "required": true,
+   "default": "shopflow-api",
+   "pattern": "^[a-zA-Z0-9_-]+$",
+   "error": "Caractères alphanumériques, tiret et souligné.",
+   "help": "Nom du WAR déployé au chapitre 2, donc chemin du contexte."
+  },
+  {
+   "key": "ENROLL_TOKEN",
+   "label": "Token d'enrôlement Fleet",
+   "type": "password",
+   "required": true,
+   "placeholder": "collez le token fourni par le formateur",
+   "help": "SECRET. Jamais pré-rempli, jamais enregistré par cette page, jamais dans un dépôt Git ni dans un ticket."
+  },
+  {
+   "key": "ES_API_KEY",
+   "label": "Clé d'API Elasticsearch (facultatif)",
+   "type": "password",
+   "required": false,
+   "placeholder": "pour le script de vérification",
+   "help": "Utilisée seulement par verif-ingestion.sh. Vous pouvez la laisser vide et la passer par la variable ES_API_KEY."
+  }
+ ],
+ "derived": {
+  "STUDENT_ID": "student{{NUM}}",
+  "NAMESPACE": "student{{NUM}}",
+  "POLICY": "policy-student{{NUM}}",
+  "SPACE": "student{{NUM}}",
+  "DATA_VIEW": "apache-student{{NUM}}"
+ },
+ "recap": [
+  "STUDENT_ID",
+  "NAMESPACE",
+  "POLICY",
+  "SPACE",
+  "STUDENT_HOST",
+  "STUDENT_IP",
+  "APACHE_LOG_DIR",
+  "CA_PATH",
+  "ES_VERSION",
+  "FLEET_URL",
+  "KIBANA_PUBLIC"
+ ],
+ "commands": [
+  {
+   "name": "parcours.sh",
+   "title": "Séquence complète du chapitre, étape par étape",
+   "content": "#!/usr/bin/env bash\n# ─────────────────────────────────────────────────────────────────────────────\n#  parcours.sh — la séquence complète du chapitre 1, pour {{STUDENT_ID}}\n#\n#  À dérouler étape par étape (et non d'un bloc) : chaque étape se vérifie\n#  avant de passer à la suivante. Les fichiers référencés sont ceux produits\n#  par le générateur du chapitre.\n# ─────────────────────────────────────────────────────────────────────────────\n\n# ÉTAPE 1 — Prérequis Apache -------------------------------------------------\napache2 -v                                  # version\napache2ctl -M | grep -E 'mpm|status|proxy|unique|headers'\napache2ctl -V | grep -i 'MPM\\|Server MPM'   # prefork / worker / event\nls -l {{APACHE_LOG_DIR}}/\nsudo a2enmod status unique_id headers\nsudo mkdir -p /var/www/shopflow/assets\necho '{\"status\":\"UP\",\"service\":\"shopflow-web\",\"student\":\"{{STUDENT_ID}}\"}' \\\n  | sudo tee /var/www/shopflow/health.json >/dev/null\n\n# ÉTAPE 2 — Journalisation et mod_status -------------------------------------\nsudo install -m 644 shopflow-logs.conf    /etc/apache2/conf-available/\nsudo install -m 644 server-status.conf    /etc/apache2/conf-available/\nsudo install -m 644 shopflow-vhost.conf   /etc/apache2/sites-available/shopflow.conf\nsudo install -m 644 logrotate-apache      /etc/logrotate.d/apache2\nsudo a2enconf shopflow-logs server-status\nsudo a2ensite shopflow\nsudo apachectl configtest                   # DOIT afficher : Syntax OK\nsudo systemctl reload apache2               # reload, jamais restart à l'aveugle\n\n# ✅ Vérification\ncurl -s -o /dev/null http://localhost/\nsudo tail -1 {{APACHE_LOG_DIR}}/access.log\nsudo tail -1 {{APACHE_LOG_DIR}}/access_json.log | python3 -m json.tool\ncurl -s \"http://localhost/server-status?auto\" | head -9\n#   depuis votre poste, l'accès distant DOIT être refusé (403) :\n#   curl -I http://{{STUDENT_IP}}/server-status\n\n# ÉTAPE 3 — Pipeline @custom (Kibana -> Dev Tools -> Console) ----------------\n#   1. coller le contenu de pipeline-access-json.json après\n#      PUT _ingest/pipeline/logs-shopflow_apache.access_json@custom\n#   2. coller pipeline-simulate.json après\n#      POST _ingest/pipeline/logs-shopflow_apache.access_json@custom/_simulate\n#   3. vérifier dans la réponse : event.duration = 4102311000 (ns)\n\n# ÉTAPE 4 — Agent Elastic ----------------------------------------------------\nsudo ./install-agent.sh '<votre-token-d-enrolement>'\nsudo elastic-agent status --output=full\nsudo elastic-agent inspect | grep -A4 -i paths\n\n# ÉTAPE 5 — Trafic, recherche, dashboard, alertes ----------------------------\nchmod +x gen-trafic.sh verif-ingestion.sh\n./gen-trafic.sh http://localhost normal 60\nES_API_KEY='<votre-cle-api>' ./verif-ingestion.sh\n\n# ÉTAPE 6 — Scénarios --------------------------------------------------------\n./gen-trafic.sh http://localhost erreurs 90\n./gen-trafic.sh http://localhost flood404\n./gen-trafic.sh http://localhost lenteur\n./gen-trafic.sh http://localhost charge\n./gen-trafic.sh http://localhost arret\n\n# ÉTAPE 7 — Nettoyage --------------------------------------------------------\nchmod +x nettoyage.sh && ./nettoyage.sh\n",
+   "lang": "bash"
+  },
+  {
+   "name": "install-agent.sh",
+   "title": "Installation et enrôlement de l'Elastic Agent",
+   "content": "#!/usr/bin/env bash\n# ─────────────────────────────────────────────────────────────────────────────\n#  install-agent.sh — installe et enrôle l'Elastic Agent sur la VM de {{STUDENT_ID}}\n#\n#  Politique visée : {{POLICY}}        Fleet Server : {{FLEET_URL}}\n#  Version imposée : {{ES_VERSION}}    (identique à celle du cluster {{ES_CLUSTER}})\n#\n#  La commande de référence reste celle affichée par Kibana dans\n#  Fleet -> Agents -> Add agent : elle correspond à la version réellement\n#  déployée. Ce script en est la version commentée et reproductible.\n#\n#  Usage :  sudo ./install-agent.sh '<token-d-enrolement>'\n#           (le token peut aussi être passé par la variable ENROLL_TOKEN)\n# ─────────────────────────────────────────────────────────────────────────────\nset -euo pipefail\n\nVERSION=\"{{ES_VERSION}}\"\nFLEET_URL=\"{{FLEET_URL}}\"\nCA_PATH=\"{{CA_PATH}}\"\nTOKEN=\"${1:-${ENROLL_TOKEN:-}}\"\nARCHIVE=\"elastic-agent-${VERSION}-linux-x86_64\"\n\nif [ -z \"$TOKEN\" ]; then\n  echo \"[ERREUR] token d'enrôlement manquant.\" >&2\n  echo \"         usage : sudo $0 '<token>'\" >&2\n  exit 1\nfi\nif [ \"$(id -u)\" -ne 0 ]; then\n  echo \"[ERREUR] à lancer avec sudo.\" >&2\n  exit 1\nfi\n\necho \"== 1. Prérequis : l'autorité de certification interne EFI ==\"\n#  Sans la CA, l'enrôlement échoue sur « x509: certificate signed by unknown\n#  authority ». --insecure ferait disparaître le symptôme, pas le problème :\n#  la connexion resterait chiffrée mais ne serait plus authentifiée.\nif [ ! -f \"$CA_PATH\" ]; then\n  echo \"[ERREUR] autorité de certification absente : $CA_PATH\" >&2\n  echo \"         demandez-la au formateur et déposez-la à cet emplacement.\" >&2\n  exit 1\nfi\nopenssl x509 -in \"$CA_PATH\" -noout -subject -dates\n\necho \"== 2. Connectivité vers Fleet Server ==\"\n#  Une réponse HTTP, MÊME une erreur, prouve que le port répond et que le\n#  chemin réseau existe. Un dépassement de délai prouve l'inverse.\ncurl -sS -I --max-time 5 --cacert \"$CA_PATH\" \"$FLEET_URL\" | head -1 \\\n  || { echo \"[ERREUR] {{FLEET_IP}}:8220 injoignable depuis cette VM.\" >&2; exit 1; }\n\necho \"== 3. Téléchargement de l'agent $VERSION ==\"\ncd /tmp\nif [ ! -d \"$ARCHIVE\" ]; then\n  curl -fL -O \"https://artifacts.elastic.co/downloads/beats/elastic-agent/${ARCHIVE}.tar.gz\"\n  tar xzf \"${ARCHIVE}.tar.gz\"\nfi\ncd \"$ARCHIVE\"\n\necho \"== 4. Installation et enrôlement ==\"\n#  --certificate-authorities : valide le certificat de Fleet Server\n#  --tag                     : permet de retrouver l'agent parmi vingt autres\n./elastic-agent install \\\n  --non-interactive \\\n  --url=\"$FLEET_URL\" \\\n  --enrollment-token=\"$TOKEN\" \\\n  --certificate-authorities=\"$CA_PATH\" \\\n  --tag \"{{STUDENT_ID}}\" --tag \"tp-apache\"\n\necho \"== 5. Vérification ==\"\nsleep 15\nelastic-agent status --output=full || true\nsystemctl is-active elastic-agent\nelastic-agent version\n\ncat <<'FIN'\n\n== Terminé ==\nÀ vérifier maintenant, dans cet ordre :\n  1. Fleet -> Agents : l'agent apparaît et passe en « Healthy ».\n  2. elastic-agent status --output=full : aucune unité en « degraded ».\n  3. Discover : les premiers documents filtrés sur votre host.name.\nSi l'état reste « degraded », lisez le message de l'unité fautive : c'est\npresque toujours un chemin de journal inexistant ou un droit de lecture.\nFIN\n",
+   "lang": "bash"
+  },
+  {
+   "name": "verif-ingestion.sh",
+   "title": "Les quatre points de contrôle de l'ingestion",
+   "content": "#!/usr/bin/env bash\n# ─────────────────────────────────────────────────────────────────────────────\n#  verif-ingestion.sh — les quatre points de contrôle, pour {{STUDENT_ID}}\n#\n#  Méthode : on remonte la chaîne de la source vers l'affichage et on\n#  S'ARRÊTE AU PREMIER point qui échoue. « Ça ne marche pas » n'est pas un\n#  diagnostic ; « le point 3 échoue avec une erreur de certificat » en est un.\n#\n#  Usage :  ES_API_KEY='<votre-cle>' ./verif-ingestion.sh\n# ─────────────────────────────────────────────────────────────────────────────\nset -uo pipefail\n\nES_URL=\"{{ES_URL}}\"\nCA_PATH=\"{{CA_PATH}}\"\nNS=\"{{NAMESPACE}}\"\nHOTE=\"{{STUDENT_HOST}}\"\n# La clé d'API se passe de préférence par la variable d'environnement.\n# Le générateur peut aussi l'inscrire ici : dans ce cas, protégez le fichier\n# (chmod 600) et ne le versionnez jamais.\nCLE_GENEREE='{{ES_API_KEY}}'\nCLE=\"${ES_API_KEY:-$CLE_GENEREE}\"\n\nif [ -z \"$CLE\" ]; then\n  echo \"[ERREUR] clé d'API absente : ES_API_KEY='<cle>' $0\" >&2\n  exit 1\nfi\n\nes() { curl -sS --cacert \"$CA_PATH\" -H \"Authorization: ApiKey ${CLE}\" \"$@\"; }\n\necho \"═══ 1. LA SOURCE PRODUIT-ELLE ? ═══\"\nsudo tail -2 {{APACHE_LOG_DIR}}/access.log      || echo \"  [!] access.log illisible ou absent\"\nsudo tail -1 {{APACHE_LOG_DIR}}/access_json.log | python3 -m json.tool \\\n  || echo \"  [!] access_json.log absent ou JSON invalide -> revoir shopflow-logs.conf\"\ncurl -s \"http://localhost/server-status?auto\" | head -9 \\\n  || echo \"  [!] mod_status injoignable -> revoir server-status.conf\"\n\necho\necho \"═══ 2. L'AGENT LIT-IL LA BONNE CHOSE ? ═══\"\nsudo elastic-agent status --output=full | sed -n '1,40p'\necho \"--- chemins réellement surveillés (config reçue de Fleet) ---\"\nsudo elastic-agent inspect | grep -A4 -i 'paths' | head -30\n\necho\necho \"═══ 3. L'AGENT ENVOIE-T-IL ? ═══\"\nsudo grep -h '\"log.level\":\"error\"' \\\n  /opt/Elastic/Agent/data/elastic-agent-*/logs/*.ndjson 2>/dev/null | tail -5 \\\n  || echo \"  aucune erreur récente dans les logs de l'agent (bon signe)\"\n\necho\necho \"═══ 4. ELASTICSEARCH A-T-IL REÇU ? ═══\"\nfor DS in \"logs-apache.access-${NS}\" \"logs-apache.error-${NS}\" \\\n          \"logs-shopflow_apache.access_json-${NS}\" \"metrics-apache.status-${NS}\"; do\n  N=$(es \"${ES_URL}/${DS}/_count\" | python3 -c 'import json,sys; print(json.load(sys.stdin).get(\"count\",\"?\"))' 2>/dev/null || echo \"absent\")\n  printf \"  %-46s %s document(s)\\n\" \"$DS\" \"$N\"\ndone\n\necho\necho \"--- fraîcheur : dernier document du journal JSON ---\"\nes \"${ES_URL}/logs-shopflow_apache.access_json-${NS}/_search?size=1&sort=@timestamp:desc\" \\\n  | python3 -c '\nimport json,sys\nd = json.load(sys.stdin)\nh = d.get(\"hits\", {}).get(\"hits\", [])\nif not h:\n    print(\"  aucun document : élargissez la fenêtre ou vérifiez le namespace\"); raise SystemExit\ns = h[0][\"_source\"]\nprint(\"  @timestamp      :\", s.get(\"@timestamp\"))\nprint(\"  url.path        :\", s.get(\"url\", {}).get(\"path\"))\nprint(\"  status_code     :\", s.get(\"http\", {}).get(\"response\", {}).get(\"status_code\"))\nprint(\"  event.duration  :\", s.get(\"event\", {}).get(\"duration\"), \"ns\")\nprint(\"  status_class    :\", s.get(\"shopflow\", {}).get(\"status_class\"))\nprint(\"  host.name       :\", s.get(\"host\", {}).get(\"name\"))\n'\n\necho\necho \"--- CONTRÔLE QUALITÉ : documents en erreur de parsing (DOIT valoir 0) ---\"\nes -H 'Content-Type: application/json' \\\n  \"${ES_URL}/logs-shopflow_apache.access_json-${NS}/_count\" \\\n  -d '{\"query\":{\"bool\":{\"should\":[{\"exists\":{\"field\":\"error.message\"}},{\"term\":{\"tags\":\"json_parse_failed\"}}],\"minimum_should_match\":1}}}'\necho\necho \"--- CONTRÔLE QUALITÉ : documents SANS champ de durée (doit rester marginal) ---\"\nes -H 'Content-Type: application/json' \\\n  \"${ES_URL}/logs-shopflow_apache.access_json-${NS}/_count\" \\\n  -d '{\"query\":{\"bool\":{\"must_not\":[{\"exists\":{\"field\":\"event.duration\"}}]}}}'\necho\necho \"═══ Terminé pour ${HOTE} ═══\"\n",
+   "lang": "bash"
+  },
+  {
+   "name": "gen-trafic.sh",
+   "title": "Générateur de trafic et de pannes (6 profils)",
+   "content": "#!/usr/bin/env bash\n# ─────────────────────────────────────────────────────────────────────────────\n#  gen-trafic.sh — trafic pédagogique sur la VM de {{STUDENT_ID}}\n#\n#  AUCUNE action destructive : uniquement des requêtes HTTP vers l'adresse\n#  passée en argument. Ne pointez JAMAIS ce script vers une machine qui n'est\n#  pas la vôtre : générer de la charge sur un système tiers sans autorisation\n#  écrite est une attaque, pas un TP.\n#\n#  Usage :  ./gen-trafic.sh [url-de-base] [profil] [duree_s]\n#           profils : normal | charge | erreurs | lenteur | flood404 | arret\n#  Exemple : ./gen-trafic.sh http://localhost charge\n# ─────────────────────────────────────────────────────────────────────────────\nset -uo pipefail\n\nBASE=\"${1:-http://localhost}\"\nPROFIL=\"${2:-normal}\"\nDUREE=\"${3:-120}\"\nFIN=$(( $(date +%s) + DUREE ))\n\nreq() { curl -s -o /dev/null -w \"%{http_code}  %{time_total}s  $1\\n\" \"${BASE}$1\"; }\n\necho \"== profil=$PROFIL  cible=$BASE  duree=${DUREE}s  candidat={{STUDENT_ID}} ==\"\n\ncase \"$PROFIL\" in\n  normal)\n    # Trafic nominal : pages, ressources statiques, API. Sert de référence.\n    while [ \"$(date +%s)\" -lt \"$FIN\" ]; do\n      req \"/\" >/dev/null\n      req \"/catalogue.html\" >/dev/null\n      req \"/assets/app.css\" >/dev/null\n      req \"/api/produit/$((RANDOM % 900))\" >/dev/null\n      [ $((RANDOM % 5)) -eq 0 ] && req \"/api/cart\" >/dev/null\n      sleep 0.4\n    done\n    ;;\n\n  charge)\n    # Montée en charge par paliers. Observez la RÉSERVE de workers (idle),\n    # la latence P95 et le DÉBIT : c'est le plafonnement du débit sous\n    # demande croissante qui définit la saturation, pas le nombre de workers.\n    command -v ab >/dev/null || { echo \"ApacheBench absent : sudo apt-get install -y apache2-utils\"; exit 1; }\n    for c in 10 30 60; do\n      echo \"--- palier : concurrence $c ---\"\n      ab -n $((c * 40)) -c \"$c\" \"${BASE}/catalogue.html\" 2>/dev/null \\\n        | grep -E 'Requests per second|Time per request|Failed requests|^  50%|^  95%|^  99%'\n      echo \"    (laissez 60 s de calme avant le palier suivant pour lire les métriques)\"\n      sleep 60\n    done\n    ;;\n\n  erreurs)\n    # 404 (lien mort), 403 (fichier sensible refusé), 500 (erreur applicative).\n    while [ \"$(date +%s)\" -lt \"$FIN\" ]; do\n      req \"/produit/inexistant-$RANDOM\" >/dev/null\n      req \"/.env\" >/dev/null\n      [ $((RANDOM % 4)) -eq 0 ] && req \"/api/erreur?type=500\" >/dev/null\n      sleep 0.6\n    done\n    ;;\n\n  flood404)\n    # Signature d'un scan automatisé : beaucoup d'URL distinctes, beaucoup de\n    # 404, sur des chemins qui n'ont rien à voir avec l'application.\n    echo \"-- 200 requêtes sur des chemins de scan --\"\n    for i in $(seq 1 40); do\n      for u in /wp-login.php /xmlrpc.php /admin/config.php /.git/config /phpmyadmin/; do\n        req \"$u\" >/dev/null\n      done\n    done\n    echo \"-- terminé : cherchez le Top 10 des URL en 404 dans Kibana --\"\n    ;;\n\n  lenteur)\n    # Requêtes volontairement lentes : aucune erreur, aucun code 5xx,\n    # et pourtant l'utilisateur subit. C'est l'argument central du chapitre.\n    for ms in 200 500 900 1500 2500 4000; do\n      echo \"--- $ms ms demandés ---\"\n      for _ in $(seq 1 6); do req \"/api/lent?ms=$ms\"; done\n    done\n    ;;\n\n  arret)\n    # Panne franche : Apache s'arrête. Objectif : voir l'alerte d'absence de\n    # données se déclencher, et constater que tous les dashboards deviennent\n    # CALMES — c'est le piège le plus dangereux de l'observabilité.\n    echo \"-- arrêt d'Apache pendant 180 s --\"\n    sudo systemctl stop apache2\n    date -u '+%Y-%m-%dT%H:%M:%SZ  arrêt'\n    sleep 180\n    sudo systemctl start apache2\n    date -u '+%Y-%m-%dT%H:%M:%SZ  redémarrage'\n    echo \"-- vérifiez : l'alerte s'est-elle déclenchée ? en combien de temps ? --\"\n    ;;\n\n  *) echo \"profils : normal | charge | erreurs | lenteur | flood404 | arret\"; exit 1 ;;\nesac\n\necho \"== Terminé. Attendez 15 à 60 s, puis cherchez dans Kibana Discover. ==\"\n",
+   "lang": "bash"
+  },
+  {
+   "name": "nettoyage.sh",
+   "title": "Nettoyage de fin de chapitre",
+   "content": "#!/usr/bin/env bash\n# ─────────────────────────────────────────────────────────────────────────────\n#  nettoyage.sh — remise en état de la VM de {{STUDENT_ID}} en fin de chapitre\n#\n#  Ce script NE supprime AUCUNE donnée dans Elasticsearch : la rétention est\n#  gérée par l'ILM de la plateforme (opération formateur). Il remet seulement\n#  la VM dans un état propre.\n# ─────────────────────────────────────────────────────────────────────────────\nset -uo pipefail\n\necho \"== 1. Rétablir Apache dans un état sain ==\"\nsudo apachectl configtest\nsudo systemctl reload apache2\nsudo systemctl is-active apache2\n\necho \"== 2. Vérifier que l'agent est sain avant de partir ==\"\nsudo elastic-agent status || true\n\necho \"== 3. Libérer l'espace des journaux locaux (forcer une rotation) ==\"\nsudo logrotate -f /etc/logrotate.d/apache2\ndu -sh {{APACHE_LOG_DIR}}\n\necho \"== 4. À FAIRE À LA MAIN dans Kibana, en fin de formation ==\"\ncat <<'FIN'\n  - Désactiver vos règles d'alerte : une règle oubliée continue de s'exécuter\n    indéfiniment et consomme le cluster partagé.\n  - Conserver vos dashboards : ils font partie de vos livrables.\n  - Ne PAS désinstaller l'agent : les chapitres 2 à 4 s'appuient dessus.\n    (désenrôlement éventuel : sudo elastic-agent uninstall)\nFIN\n",
+   "lang": "bash"
+  }
+ ],
+ "files": [
+  {
+   "name": "shopflow-logs.conf",
+   "path": "/etc/apache2/conf-available/shopflow-logs.conf",
+   "content": "# ─────────────────────────────────────────────────────────────────────────────\n#  shopflow-logs.conf — journalisation Apache pour ShopFlow (NovaCommerce)\n#  Candidat : {{STUDENT_ID}}   VM : {{STUDENT_HOST}} ({{STUDENT_IP}})\n#\n#  Emplacement : /etc/apache2/conf-available/shopflow-logs.conf\n#  Activation  : sudo a2enconf shopflow-logs\n#                sudo apachectl configtest && sudo systemctl reload apache2\n#\n#  POURQUOI DEUX JOURNAUX\n#   - access.log       : format « combined », celui que l'intégration Apache\n#                        d'Elastic sait parser seule, sans configuration.\n#   - access_json.log  : JSON portant %D (la DURÉE), que les formats standards\n#                        ne contiennent pas. Sans ce journal, aucun percentile\n#                        de latence n'est calculable côté Apache.\n# ─────────────────────────────────────────────────────────────────────────────\n\n# ─── Format 1 : combined standard ───────────────────────────────────────────\n#  %h hôte distant   %l identd (toujours « - »)   %u utilisateur authentifié\n#  %t date           %r première ligne de requête %>s statut final\n#  %O octets envoyés, en-têtes compris (préférer %O ou %B à %b : %b écrit « - »\n#     pour une réponse vide, ce qui casse les agrégations numériques)\nLogFormat \"%h %l %u %t \\\"%r\\\" %>s %O \\\"%{Referer}i\\\" \\\"%{User-Agent}i\\\"\" shopflow_combined\n\n# ─── Format 2 : JSON enrichi, noms de champs déjà en ECS ────────────────────\n#  %D  durée de traitement en MICROSECONDES (Apache httpd)\n#  %B  octets du corps, 0 si vide      %p port    %v vhost\n#  %X  état de la connexion en fin de requête (X = client parti avant la fin)\nLogFormat \"{\\\n\\\"@timestamp\\\":\\\"%{%Y-%m-%dT%H:%M:%S}t.%{msec_frac}t%{%z}t\\\",\\\n\\\"source.address\\\":\\\"%a\\\",\\\n\\\"http.request.method\\\":\\\"%m\\\",\\\n\\\"url.original\\\":\\\"%U%q\\\",\\\n\\\"url.path\\\":\\\"%U\\\",\\\n\\\"http.version\\\":\\\"%H\\\",\\\n\\\"http.response.status_code\\\":%>s,\\\n\\\"http.response.body.bytes\\\":%B,\\\n\\\"http.request.referrer\\\":\\\"%{Referer}i\\\",\\\n\\\"user_agent.original\\\":\\\"%{User-Agent}i\\\",\\\n\\\"server.port\\\":%p,\\\n\\\"shopflow.vhost\\\":\\\"%v\\\",\\\n\\\"shopflow.student\\\":\\\"{{STUDENT_ID}}\\\",\\\n\\\"shopflow.duration_us\\\":%D,\\\n\\\"shopflow.conn_status\\\":\\\"%X\\\",\\\n\\\"shopflow.request_id\\\":\\\"%{UNIQUE_ID}e\\\"\\\n}\" shopflow_json\n\n# ─── Destinations ───────────────────────────────────────────────────────────\nCustomLog {{APACHE_LOG_DIR}}/access.log      shopflow_combined\nCustomLog {{APACHE_LOG_DIR}}/access_json.log shopflow_json\n\n# ─── Journal d'erreurs ──────────────────────────────────────────────────────\n#  « warn » est le bon réglage en régime normal. « info » et « debug »\n#  produisent un volume considérable : à n'activer que le temps d'un diagnostic.\nErrorLog {{APACHE_LOG_DIR}}/error.log\nLogLevel warn\n\n# ─── Identifiant de corrélation transmis au backend (utile au chapitre 2) ───\n#  mod_unique_id et mod_headers doivent être actifs :\n#    sudo a2enmod unique_id headers\nRequestHeader set X-Request-Id \"%{UNIQUE_ID}e\"\n",
+   "lang": "apache"
+  },
+  {
+   "name": "server-status.conf",
+   "path": "/etc/apache2/conf-available/server-status.conf",
+   "content": "# ─────────────────────────────────────────────────────────────────────────────\n#  server-status.conf — mod_status pour la collecte de métriques Apache\n#  Candidat : {{STUDENT_ID}}   VM : {{STUDENT_HOST}} ({{STUDENT_IP}})\n#\n#  Emplacement : /etc/apache2/conf-available/server-status.conf\n#  Activation  : sudo a2enmod status && sudo a2enconf server-status\n#                sudo apachectl configtest && sudo systemctl reload apache2\n#\n#  Deux rendus :\n#    /server-status        page HTML, pour un humain\n#    /server-status?auto   texte brut, une métrique par ligne : c'est CE format\n#                          que lit l'intégration Apache d'Elastic.\n# ─────────────────────────────────────────────────────────────────────────────\n\n# Compteurs détaillés (durées, octets, scoreboard complet).\n# Depuis Apache 2.3.6 le chargement de mod_status l'active par défaut ;\n# on le déclare malgré tout pour ne pas dépendre du paquet de la distribution.\nExtendedStatus On\n\n<Location \"/server-status\">\n    SetHandler server-status\n\n    # ── LE point critique : contrôle d'accès ──\n    # L'Elastic Agent tourne sur la machine : la boucle locale suffit.\n    # /server-status exposé publiquement est une fuite d'information\n    # (URL en cours de traitement, IP des clients, vhosts).\n    Require local\n\n    # Si l'agent interrogeait depuis une autre machine, on autoriserait\n    # son adresse — et uniquement la sienne :\n    # Require ip {{STUDENT_IP}}\n</Location>\n",
+   "lang": "apache"
+  },
+  {
+   "name": "shopflow.conf",
+   "path": "/etc/apache2/sites-available/shopflow.conf",
+   "content": "# ─────────────────────────────────────────────────────────────────────────────\n#  shopflow-vhost.conf — hôte virtuel ShopFlow\n#  Candidat : {{STUDENT_ID}}   VM : {{STUDENT_HOST}} ({{STUDENT_IP}})\n#\n#  Emplacement : /etc/apache2/sites-available/shopflow.conf\n#  Activation  : sudo a2ensite shopflow && sudo a2dissite 000-default\n#                sudo apachectl configtest && sudo systemctl reload apache2\n#\n#  Chapitre 1 : seules les ressources statiques et /health répondent.\n#  Chapitre 2 : le bloc ProxyPass envoie /api/ vers Tomcat.\n# ─────────────────────────────────────────────────────────────────────────────\n<VirtualHost *:80>\n    ServerName {{SERVER_NAME}}\n    DocumentRoot /var/www/shopflow\n\n    <Directory /var/www/shopflow>\n        Options -Indexes +FollowSymLinks\n        AllowOverride None\n        Require all granted\n    </Directory>\n\n    # Sonde de supervision : réponse locale, sans passer par le backend.\n    # Elle est volontairement exclue des mesures de trafic réel (chapitre 1).\n    Alias /health /var/www/shopflow/health.json\n    <Files \"health.json\">\n        Require all granted\n    </Files>\n\n    # Fichiers sensibles : refus explicite (produit les 403 du scénario « flood »).\n    <FilesMatch \"^\\.(env|git)\">\n        Require all denied\n    </FilesMatch>\n\n    # ─── Chapitre 2 : reverse proxy vers Tomcat ───────────────────────────\n    #  Activer les modules :  sudo a2enmod proxy proxy_http headers unique_id\n    #  Puis décommenter les quatre lignes suivantes.\n    # ProxyPreserveHost On\n    # ProxyPass        /api/ http://127.0.0.1:{{TOMCAT_PORT}}/{{APP_CONTEXT}}/api/\n    # ProxyPassReverse /api/ http://127.0.0.1:{{TOMCAT_PORT}}/{{APP_CONTEXT}}/api/\n    # ProxyTimeout 30\n\n    # La journalisation est définie dans conf-available/shopflow-logs.conf\n    # (un seul endroit, pour toutes les vhosts).\n</VirtualHost>\n",
+   "lang": "apache"
+  },
+  {
+   "name": "apache2",
+   "path": "/etc/logrotate.d/apache2",
+   "lang": "bash",
+   "content": "# ─────────────────────────────────────────────────────────────────────────────\n#  /etc/logrotate.d/apache2 — rotation des journaux Apache de {{STUDENT_ID}}\n#\n#  delaycompress est OBLIGATOIRE quand un agent lit ces fichiers : sans elle,\n#  le fichier est renommé ET compressé immédiatement, et l'agent peut perdre\n#  les dernières lignes écrites juste avant la rotation.\n# ─────────────────────────────────────────────────────────────────────────────\n{{APACHE_LOG_DIR}}/*.log {\n        daily\n        missingok\n        rotate 14\n        compress\n        delaycompress\n        notifempty\n        create 640 root adm\n        sharedscripts\n        postrotate\n                if invoke-rc.d apache2 status > /dev/null 2>&1; then \\\n                    invoke-rc.d apache2 reload > /dev/null 2>&1; \\\n                fi;\n        endscript\n}\n"
+  },
+  {
+   "name": "pipeline-access-json.json",
+   "path": "Kibana -> Dev Tools -> PUT _ingest/pipeline/logs-shopflow_apache.access_json@custom",
+   "content": "{\n  \"_source\": \"À créer dans Kibana → Dev Tools → Console avec la requête ci-dessous.\",\n  \"_requete\": \"PUT _ingest/pipeline/logs-shopflow_apache.access_json@custom\",\n  \"description\": \"ShopFlow {{STUDENT_ID}} — normalisation ECS du journal JSON Apache (durée, user agent, famille de code)\",\n  \"processors\": [\n    {\n      \"json\": {\n        \"field\": \"message\",\n        \"add_to_root\": true,\n        \"add_to_root_conflict_strategy\": \"merge\",\n        \"on_failure\": [\n          { \"append\": { \"field\": \"tags\", \"value\": [\"json_parse_failed\"] } },\n          { \"set\": { \"field\": \"error.message\", \"value\": \"message non parsable en JSON\" } }\n        ]\n      }\n    },\n    {\n      \"date\": {\n        \"field\": \"@timestamp\",\n        \"formats\": [\"ISO8601\"],\n        \"target_field\": \"@timestamp\",\n        \"ignore_failure\": true\n      }\n    },\n    {\n      \"convert\": { \"field\": \"shopflow.duration_us\", \"type\": \"long\", \"ignore_missing\": true }\n    },\n    {\n      \"script\": {\n        \"description\": \"microsecondes -> nanosecondes : event.duration est en nanosecondes dans ECS\",\n        \"lang\": \"painless\",\n        \"source\": \"if (ctx.shopflow != null && ctx.shopflow.duration_us != null) { ctx.event = ctx.event ?: [:]; ctx.event.duration = ctx.shopflow.duration_us * 1000L; }\",\n        \"ignore_failure\": true\n      }\n    },\n    {\n      \"script\": {\n        \"description\": \"famille de code HTTP : 2xx, 3xx, 4xx, 5xx (calculé une fois à l'ingestion)\",\n        \"lang\": \"painless\",\n        \"source\": \"if (ctx.http?.response?.status_code != null) { long c = ctx.http.response.status_code; ctx.shopflow = ctx.shopflow ?: [:]; ctx.shopflow.status_class = (c/100) + 'xx'; }\",\n        \"ignore_failure\": true\n      }\n    },\n    { \"set\": { \"field\": \"event.module\", \"value\": \"apache\", \"override\": false } },\n    { \"set\": { \"field\": \"event.dataset\", \"value\": \"shopflow_apache.access_json\", \"override\": false } },\n    { \"set\": { \"field\": \"service.name\", \"value\": \"shopflow-web\", \"override\": false } },\n    { \"set\": { \"field\": \"service.environment\", \"value\": \"{{STUDENT_ID}}\", \"override\": false } },\n    { \"user_agent\": { \"field\": \"user_agent.original\", \"ignore_missing\": true } },\n    {\n      \"convert\": {\n        \"field\": \"source.address\", \"target_field\": \"source.ip\",\n        \"type\": \"ip\", \"ignore_failure\": true\n      }\n    },\n    {\n      \"set\": {\n        \"field\": \"event.outcome\", \"value\": \"failure\",\n        \"if\": \"ctx.http?.response?.status_code != null && ctx.http.response.status_code >= 500\"\n      }\n    },\n    {\n      \"set\": {\n        \"field\": \"event.outcome\", \"value\": \"success\", \"override\": false,\n        \"if\": \"ctx.http?.response?.status_code != null && ctx.http.response.status_code < 400\"\n      }\n    },\n    { \"remove\": { \"field\": \"message\", \"ignore_missing\": true } }\n  ],\n  \"on_failure\": [\n    { \"set\": { \"field\": \"error.message\", \"value\": \"{{ _ingest.on_failure_message }}\" } }\n  ]\n}\n",
+   "lang": "json"
+  },
+  {
+   "name": "pipeline-simulate.json",
+   "path": "Kibana -> Dev Tools -> POST .../_simulate",
+   "content": "{\n  \"_requete\": \"POST _ingest/pipeline/logs-shopflow_apache.access_json@custom/_simulate\",\n  \"_but\": \"Tester le pipeline AVANT de l'exposer à de vraies données. Le résultat doit montrer event.duration = 4102311000 (nanosecondes) et shopflow.status_class = 2xx.\",\n  \"docs\": [\n    {\n      \"_source\": {\n        \"message\": \"{\\\"@timestamp\\\":\\\"2026-11-06T14:13:02.455+0100\\\",\\\"source.address\\\":\\\"203.0.113.45\\\",\\\"http.request.method\\\":\\\"GET\\\",\\\"url.original\\\":\\\"/api/cart\\\",\\\"url.path\\\":\\\"/api/cart\\\",\\\"http.version\\\":\\\"HTTP/1.1\\\",\\\"http.response.status_code\\\":200,\\\"http.response.body.bytes\\\":184320,\\\"http.request.referrer\\\":\\\"-\\\",\\\"user_agent.original\\\":\\\"Mozilla/5.0 (X11; Linux x86_64) Chrome/129.0\\\",\\\"server.port\\\":80,\\\"shopflow.vhost\\\":\\\"{{SERVER_NAME}}\\\",\\\"shopflow.student\\\":\\\"{{STUDENT_ID}}\\\",\\\"shopflow.duration_us\\\":4102311,\\\"shopflow.conn_status\\\":\\\"+\\\",\\\"shopflow.request_id\\\":\\\"abc123\\\"}\"\n      }\n    },\n    {\n      \"_source\": {\n        \"message\": \"{\\\"@timestamp\\\":\\\"2026-11-06T14:05:33.112+0100\\\",\\\"source.address\\\":\\\"198.51.100.7\\\",\\\"http.request.method\\\":\\\"POST\\\",\\\"url.original\\\":\\\"/api/checkout\\\",\\\"url.path\\\":\\\"/api/checkout\\\",\\\"http.version\\\":\\\"HTTP/1.1\\\",\\\"http.response.status_code\\\":500,\\\"http.response.body.bytes\\\":1044,\\\"http.request.referrer\\\":\\\"-\\\",\\\"user_agent.original\\\":\\\"curl/8.5.0\\\",\\\"server.port\\\":80,\\\"shopflow.vhost\\\":\\\"{{SERVER_NAME}}\\\",\\\"shopflow.student\\\":\\\"{{STUDENT_ID}}\\\",\\\"shopflow.duration_us\\\":892410,\\\"shopflow.conn_status\\\":\\\"+\\\",\\\"shopflow.request_id\\\":\\\"def456\\\"}\"\n      }\n    },\n    {\n      \"_source\": { \"message\": \"ceci n'est pas du JSON : doit produire le tag json_parse_failed\" }\n    }\n  ]\n}\n",
+   "lang": "json"
+  },
+  {
+   "name": "01-taux-5xx.json",
+   "path": "Règle d'alerte — niveau 1",
+   "content": "{\n  \"_nom\": \"taux-5xx-apache-{{STUDENT_ID}}\",\n  \"_niveau\": \"1 — impact utilisateur\",\n  \"_type_de_regle\": \"Elasticsearch query (variante ES|QL)\",\n  \"_fenetre\": \"5 minutes\",\n  \"_intervalle\": \"1 minute\",\n  \"_condition\": \"au moins une ligne retournée\",\n  \"_regroupement\": \"aucun (une seule VM par candidat)\",\n  \"_frequence_action\": \"au changement d'état, avec action de rétablissement\",\n  \"_action\": \"connecteur Index -> alertes-formation-{{STUDENT_ID}}\",\n  \"_pourquoi_un_ratio\": \"50 erreurs sur 200 requêtes est grave, 50 sur 500 000 ne l'est pas. Le garde-fou total >= 20 évite qu'une seule erreur sur trois requêtes déclenche l'alerte la nuit.\",\n  \"esql\": \"FROM logs-shopflow_apache.access_json-{{NAMESPACE}} | WHERE @timestamp > NOW() - 5 minutes | WHERE url.path LIKE \\\"/api/*\\\" | WHERE NOT url.path IN (\\\"/health\\\", \\\"/server-status\\\") | EVAL mauvaise = CASE(http.response.status_code >= 500, 1, 0) | STATS total = COUNT(*), mauvaises = SUM(mauvaise) | EVAL taux_5xx = ROUND(mauvaises * 100.0 / total, 2) | WHERE total >= 20 AND taux_5xx > 5.0 | KEEP total, mauvaises, taux_5xx\",\n  \"_repli_dsl\": {\n    \"_usage\": \"Si le type de règle ES|QL n'est pas disponible : règle « Elasticsearch query » en DSL, condition « nombre de documents > 10 ». Le ratio est alors perdu : compensez en restreignant la fenêtre à 5 minutes.\",\n    \"index\": [\"logs-shopflow_apache.access_json-{{NAMESPACE}}\"],\n    \"query\": {\n      \"bool\": {\n        \"filter\": [\n          { \"range\": { \"@timestamp\": { \"gte\": \"now-5m\" } } },\n          { \"range\": { \"http.response.status_code\": { \"gte\": 500 } } },\n          { \"prefix\": { \"url.path\": \"/api/\" } }\n        ],\n        \"must_not\": [ { \"terms\": { \"url.path\": [\"/health\", \"/server-status\"] } } ]\n      }\n    }\n  }\n}\n",
+   "lang": "json"
+  },
+  {
+   "name": "02-pic-trafic.json",
+   "path": "Règle d'alerte — niveau 2",
+   "content": "{\n  \"_nom\": \"pic-trafic-apache-{{STUDENT_ID}}\",\n  \"_niveau\": \"2 — symptôme proche de l'impact\",\n  \"_type_de_regle\": \"Elasticsearch query (variante ES|QL)\",\n  \"_fenetre\": \"5 minutes\",\n  \"_intervalle\": \"1 minute\",\n  \"_condition\": \"au moins une ligne retournée\",\n  \"_seuil\": \"plus de 1 500 requêtes sur 5 minutes (soit environ 5 req/s)\",\n  \"_calibrage\": \"OBLIGATOIRE avant activation : relevez votre trafic nominal sur 7 jours (min / médiane / max par tranche de 5 minutes) et posez le seuil au-dessus du maximum observé. Le 1 500 ci-dessous est la valeur mesurée en TP après `ab -n 1000 -c 50`, pas une vérité.\",\n  \"esql\": \"FROM logs-shopflow_apache.access_json-{{NAMESPACE}} | WHERE @timestamp > NOW() - 5 minutes | WHERE NOT url.path IN (\\\"/health\\\", \\\"/server-status\\\") | STATS requetes = COUNT(*) | WHERE requetes > 1500 | KEEP requetes\",\n  \"_note\": \"Un pic de trafic n'est pas un incident en soi : cette règle sert à expliquer une dégradation de latence, pas à réveiller quelqu'un. Action attendue : ticket, et vérification de la réserve de workers.\"\n}\n",
+   "lang": "json"
+  },
+  {
+   "name": "03-apache-absent.json",
+   "path": "Règle d'alerte — niveau 4 (absence de données)",
+   "content": "{\n  \"_nom\": \"apache-absent-{{STUDENT_ID}}\",\n  \"_niveau\": \"4 — santé de l'observabilité\",\n  \"_type_de_regle\": \"Elasticsearch query (variante ES|QL)\",\n  \"_fenetre\": \"10 minutes\",\n  \"_intervalle\": \"2 minutes\",\n  \"_condition\": \"au moins une ligne retournée (la ligne n'existe que si le compte est trop bas)\",\n  \"_pourquoi\": \"Sans cette règle, un arrêt d'Apache ou de l'agent rend tous vos dashboards CALMES : le taux de 5xx tombe à zéro, les autres alertes se taisent, et vous concluez que tout va bien.\",\n  \"_methode\": \"Mesurez d'abord le volume MINIMAL observé sur 7 jours par tranche de 10 minutes, nuit comprise, puis posez le seuil nettement en dessous. Le 5 ci-dessous suppose la sonde /health interrogée en permanence.\",\n  \"_test_obligatoire\": \"sudo systemctl stop apache2 (ou stop elastic-agent), attendre la fenêtre, vérifier le déclenchement, puis redémarrer et vérifier l'extinction. Une alerte d'absence de données jamais testée ne vaut rien.\",\n  \"esql\": \"FROM logs-shopflow_apache.access_json-{{NAMESPACE}} | WHERE @timestamp > NOW() - 10 minutes | STATS documents = COUNT(*) | WHERE documents < 5 | KEEP documents\",\n  \"_variante_agent\": {\n    \"_nom\": \"agent-silencieux-{{STUDENT_ID}}\",\n    \"_but\": \"Détecter l'agent lui-même, et non la source : complémentaire, pas redondant.\",\n    \"esql\": \"FROM metrics-elastic_agent.elastic_agent-* | WHERE @timestamp > NOW() - 10 minutes | WHERE host.name == \\\"{{STUDENT_HOST}}\\\" | STATS documents = COUNT(*) | WHERE documents < 1 | KEEP documents\"\n  }\n}\n",
+   "lang": "json"
+  },
+  {
+   "name": "04-workers-saturation.json",
+   "path": "Règle d'alerte — niveau 3",
+   "content": "{\n  \"_nom\": \"workers-reserve-basse-{{STUDENT_ID}}\",\n  \"_niveau\": \"3 — saturation de ressource\",\n  \"_type_de_regle\": \"Elasticsearch query (variante ES|QL)\",\n  \"_fenetre\": \"10 minutes\",\n  \"_intervalle\": \"2 minutes\",\n  \"_condition\": \"au moins une ligne retournée\",\n  \"_seuil\": \"réserve moyenne de workers libres <= 2 sur la fenêtre\",\n  \"_pourquoi_idle_et_non_busy\": \"workers.busy élevé est NORMAL sous trafic. C'est la disparition de la RÉSERVE (workers.idle) qui annonce les 503 et le message AH00485 « scoreboard is full ».\",\n  \"_action\": \"Ticket en heures ouvrées. Surtout : ne pas augmenter MaxRequestWorkers avant d'avoir écarté l'hypothèse d'un backend lent (workers saturés + CPU bas = attente, pas manque de capacité).\",\n  \"esql\": \"FROM metrics-apache.status-{{NAMESPACE}} | WHERE @timestamp > NOW() - 10 minutes | WHERE host.name == \\\"{{STUDENT_HOST}}\\\" | STATS reserve = AVG(apache.status.workers.idle), occupes = AVG(apache.status.workers.busy) | WHERE reserve <= 2 | EVAL reserve = ROUND(reserve, 1), occupes = ROUND(occupes, 1) | KEEP reserve, occupes\",\n  \"_a_verifier\": \"Le nom exact des champs de métriques (apache.status.workers.idle / .busy) dépend de la version de l'intégration. Ouvrez un document de metrics-apache.status-{{NAMESPACE}} dans Discover avant d'activer la règle.\"\n}\n",
+   "lang": "json"
+  }
+ ]
+};
+
+/* ---------- utilitaires ---------- */
+const $  = (s, r) => (r || document).querySelector(s);
+const el = (t, a, txt) => { const n = document.createElement(t);
+  if (a) for (const k in a) n.setAttribute(k, a[k]);
+  if (txt != null) n.textContent = txt; return n; };
+const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+/* ---------- substitution des placeholders ---------- */
+/* Une valeur saisie peut contenir des guillemets (par exemple une clause
+   ES|QL). Injectée telle quelle dans un fichier JSON, elle casserait le
+   document : on échappe donc selon le format du fichier cible. */
+function echappeJson(v) {
+  return String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"')
+    .replace(/\n/g, "\\n").replace(/\r/g, "\\r").replace(/\t/g, "\\t");
+}
+function substitue(texte, vals, format) {
+  return String(texte).replace(/\{\{([A-Z0-9_]+)\}\}/g, (m, k) => {
+    if (!Object.prototype.hasOwnProperty.call(vals, k)) return m;
+    return format === "json" ? echappeJson(vals[k]) : vals[k];
+  });
+}
+/* Les valeurs dérivées peuvent dépendre les unes des autres : on résout par passes. */
+function resout(vals, derived) {
+  const out = Object.assign({}, vals);
+  for (let passe = 0; passe < 6; passe++) {
+    let change = false;
+    for (const k in derived) {
+      const v = substitue(derived[k], out);
+      if (out[k] !== v) { out[k] = v; change = true; }
+    }
+    if (!change) break;
+  }
+  return out;
+}
+
+/* ---------- coloration simple ---------- */
+const COMMENT = { bash:/^\s*#/, yaml:/^\s*#/, properties:/^\s*[#!]/, apache:/^\s*#/,
+                  sql:/^\s*(#|\/\/|--)/, java:/^\s*(\/\/|\*|\/\*)/, xml:null, json:null, text:null };
+const MOTS = {
+  bash:/\b(if|then|else|elif|fi|for|while|do|done|case|esac|in|function|return|local|export|set|echo|exit|sudo|curl|systemctl|kubectl|cd|sleep|source)\b/g,
+  yaml:/^(\s*(?:-\s+)?)([A-Za-z0-9_.\/-]+)(:)/gm,
+  apache:/^(\s*)(&lt;\/?[A-Za-z]+|[A-Z][A-Za-z]+)\b/gm,
+  sql:/\b(FROM|WHERE|EVAL|STATS|KEEP|SORT|LIMIT|BY|AND|OR|NOT|CASE|COUNT|SUM|ROUND|NOW|IS|NULL|LIKE|IN|DATE_TRUNC|PERCENTILE|DROP|RENAME)\b/g,
+  java:/\b(public|private|static|final|class|void|new|return|if|else|for|while|try|catch|throw|throws|import|package|int|long|String|boolean)\b/g
+};
+function colorise(code, lang) {
+  const cl = COMMENT[lang];
+  const lignes = esc(code).split("\n").map(l => {
+    if (cl && cl.test(l)) return '<span class="tc">' + l + "</span>";
+    let o = l;
+    o = o.replace(/("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/g, '<span class="ts">$1</span>');
+    if (lang === "json")  o = o.replace(/\b(true|false|null)\b/g, '<span class="tk">$1</span>');
+    if (lang === "xml")   o = o.replace(/(&lt;\/?[A-Za-z!?][\w:.-]*)/g, '<span class="tg">$1</span>');
+    if (lang === "yaml")  o = o.replace(MOTS.yaml, '$1<span class="tg">$2</span>$3');
+    if (lang === "apache")o = o.replace(MOTS.apache, '$1<span class="tg">$2</span>');
+    if (MOTS[lang] && lang !== "yaml" && lang !== "apache") o = o.replace(MOTS[lang], '<span class="tk">$1</span>');
+    o = o.replace(/(^|[\s:=(,[])(\d+(?:\.\d+)?)\b/g, '$1<span class="tn">$2</span>');
+    return o;
+  });
+  return lignes.join("\n");
+}
+
+/* ---------- copier / télécharger ---------- */
+function copier(texte, btn) {
+  const fini = ok => { const av = btn.textContent;
+    btn.textContent = ok ? "Copié ✓" : "Échec"; setTimeout(() => { btn.textContent = av; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(texte).then(() => fini(true), () => fini(secours(texte)));
+  } else { fini(secours(texte)); }
+}
+function secours(texte) {                       /* presse-papier indisponible (iframe, http) */
+  const ta = el("textarea"); ta.value = texte;
+  ta.setAttribute("style", "position:fixed;top:-1000px;left:0;opacity:0");
+  document.body.appendChild(ta); ta.select();
+  let ok = false; try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+  document.body.removeChild(ta); return ok;
+}
+function telecharger(nom, texte, btn) {
+  try {
+    const b = new Blob([texte], { type: "text/plain;charset=utf-8" });
+    const u = URL.createObjectURL(b);
+    const a = el("a", { href: u, download: nom });
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(u), 4000);
+  } catch (e) {
+    btn.textContent = "Bloqué — utilisez Copier";
+    setTimeout(() => { btn.textContent = "Télécharger"; }, 2600);
+  }
+}
+
+/* ---------- construction du formulaire ---------- */
+function champs() {
+  const hote = $("#t-fields");
+  PAYLOAD.fields.forEach(f => {
+    const box = el("div");
+    const lab = el("label", { for: "f-" + f.key }, f.label);
+    if (f.required) lab.appendChild(el("span", { class: "req" }, " *"));
+    box.appendChild(lab);
+    let inp;
+    if (f.type === "select") {
+      inp = el("select", { id: "f-" + f.key });
+      (f.options || []).forEach(o => inp.appendChild(el("option", { value: o }, o)));
+      if (f.default) inp.value = f.default;
+    } else {
+      inp = el("input", { id: "f-" + f.key, type: f.type === "password" ? "password" : "text",
+        value: f.default || "", placeholder: f.placeholder || "", autocomplete: "off",
+        spellcheck: "false" });
+    }
+    inp.dataset.key = f.key;
+    box.appendChild(inp);
+    if (f.help) box.appendChild(el("p", { class: "help" }, f.help));
+    box.appendChild(el("p", { class: "err", id: "e-" + f.key }));
+    hote.appendChild(box);
+  });
+}
+function constantes() {
+  const tb = $("#t-cst");
+  PAYLOAD.constants.forEach(c => {
+    const tr = el("tr");
+    tr.appendChild(el("th", null, c.label));
+    const td = el("td"); td.appendChild(el("code", null, c.value));
+    if (c.note) { td.appendChild(document.createElement("br"));
+      td.appendChild(el("span", { class: "help" }, c.note)); }
+    tr.appendChild(td); tb.appendChild(tr);
+  });
+}
+
+/* ---------- validation ---------- */
+function valide() {
+  let ok = true; const vals = {};
+  PAYLOAD.fields.forEach(f => {
+    const inp = $("#f-" + f.key), zone = $("#e-" + f.key);
+    const v = (inp.value || "").trim();
+    let msg = "";
+    if (f.required && !v) msg = "Champ obligatoire.";
+    else if (v && f.pattern && !new RegExp(f.pattern).test(v)) msg = f.error || "Format invalide.";
+    zone.textContent = msg;
+    inp.setAttribute("aria-invalid", msg ? "true" : "false");
+    if (msg) ok = false;
+    vals[f.key] = v;
+  });
+  return ok ? vals : null;
+}
+
+/* ---------- rendu ---------- */
+function bloc(titre, chemin, contenu, lang) {
+  const b = el("div", { class: "blk" });
+  const h = el("header");
+  const g = el("div");
+  g.appendChild(el("h3", null, titre));
+  if (chemin) g.appendChild(el("div", { class: "path" }, chemin));
+  h.appendChild(g);
+  const btns = el("div", { class: "btns" });
+  const bc = el("button", { type: "button", class: "sm" }, "Copier");
+  bc.addEventListener("click", () => copier(contenu, bc));
+  const bt = el("button", { type: "button", class: "sm" }, "Télécharger");
+  bt.addEventListener("click", () => telecharger(titre, contenu, bt));
+  btns.appendChild(bc); btns.appendChild(bt);
+  h.appendChild(btns); b.appendChild(h);
+  const pre = el("pre"); pre.innerHTML = colorise(contenu, lang || "text");
+  b.appendChild(pre); return b;
+}
+function genere() {
+  const brut = valide();
+  const msg = $("#t-msg");
+  if (!brut) { msg.className = "msg bad";
+    msg.textContent = "Corrigez les champs signalés avant de générer."; return; }
+  const vals = resout(Object.assign({}, PAYLOAD.fixed, brut), PAYLOAD.derived);
+
+  const recap = $("#t-recap"); recap.textContent = "";
+  recap.appendChild(el("strong", null, "Valeurs appliquées"));
+  const ul = el("div", { class: "rec" });
+  (PAYLOAD.recap || []).forEach(k => {
+    if (vals[k] != null && vals[k] !== "") ul.appendChild(el("div", null, k + " = " + vals[k]));
+  });
+  recap.appendChild(ul);
+
+  const zone = $("#t-blocks"); zone.textContent = "";
+  (PAYLOAD.commands || []).forEach(c =>
+    zone.appendChild(bloc(c.name, c.title || "",
+      substitue(c.content, vals, c.lang), c.lang)));
+  (PAYLOAD.files || []).forEach(f =>
+    zone.appendChild(bloc(f.name, substitue(f.path || "", vals),
+      substitue(f.content, vals, f.lang), f.lang)));
+
+  $("#t-out").classList.remove("hidden");
+  msg.className = "msg ok";
+  msg.textContent = (PAYLOAD.files || []).length + " fichier(s) et " +
+                    (PAYLOAD.commands || []).length + " bloc(s) de commandes générés.";
+  /* scrollIntoView n'existe pas dans tous les contextes d'intégration
+     (certaines iframes restreintes) : on ne tombe pas pour autant. */
+  const sortie = $("#t-out");
+  if (typeof sortie.scrollIntoView === "function") {
+    sortie.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
+/* ---------- démarrage ---------- */
+$("#t-titre").textContent = PAYLOAD.chapitre;
+document.title = PAYLOAD.chapitre;
+$("#t-intro").textContent = PAYLOAD.intro || "";
+constantes(); champs();
+$("#t-gen").addEventListener("click", genere);
+$("#t-reset").addEventListener("click", () => {
+  $("#t-form").reset();
+  PAYLOAD.fields.forEach(f => { $("#e-" + f.key).textContent = "";
+    $("#f-" + f.key).setAttribute("aria-invalid", "false"); });
+  $("#t-out").classList.add("hidden"); $("#t-msg").textContent = "";
+});
+$("#t-form").addEventListener("submit", e => { e.preventDefault(); genere(); });
+$("#t-form").addEventListener("keydown", e => {
+  if (e.key === "Enter" && e.target.tagName !== "TEXTAREA") { e.preventDefault(); genere(); }
+});
+</script>
+</body>
+</html>

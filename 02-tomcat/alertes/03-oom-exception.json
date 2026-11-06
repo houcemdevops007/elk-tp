@@ -1,0 +1,30 @@
+{
+  "_nom": "exception-critique-tomcat-{{STUDENT_ID}}",
+  "_niveau": "2 — symptôme (niveau 1 si le tunnel d'achat est touché)",
+  "_fenetre": "5 minutes",
+  "_intervalle": "1 minute",
+  "_condition": "au moins une occurrence",
+  "_pourquoi_seuil_a_un": "Une OutOfMemoryError n'a pas de seuil acceptable. Contrairement à un taux d'erreur, une seule occurrence justifie une action : la JVM est dans un état où elle ne peut plus garantir son fonctionnement.",
+  "_les_cinq_oom_a_distinguer": {
+    "Java heap space": "la heap est pleine : fuite, ou -Xmx insuffisant",
+    "GC overhead limit exceeded": "la JVM n'arrive plus à libérer de mémoire utile : presque toujours une fuite avancée",
+    "Metaspace": "trop de classes chargées : redéploiements à chaud répétés",
+    "unable to create new native thread": "limite système de threads — RIEN à voir avec la heap : augmenter -Xmx aggrave le problème",
+    "Direct buffer memory": "mémoire native hors tas épuisée : régler -XX:MaxDirectMemorySize"
+  },
+  "esql": "FROM logs-shopflow_tomcat.catalina-{{NAMESPACE}},logs-shopflow_tomcat.app-{{NAMESPACE}} | WHERE @timestamp > NOW() - 5 minutes | WHERE message LIKE \"*OutOfMemoryError*\" OR message LIKE \"*SQLTimeoutException*\" OR error.type LIKE \"*OutOfMemoryError*\" | STATS occurrences = COUNT(*), derniere = MAX(@timestamp) | WHERE occurrences > 0 | KEEP occurrences, derniere",
+  "_repli_dsl": {
+    "index": ["logs-shopflow_tomcat.catalina-{{NAMESPACE}}"],
+    "query": {
+      "bool": {
+        "filter": [ { "range": { "@timestamp": { "gte": "now-5m" } } } ],
+        "should": [
+          { "match_phrase": { "message": "OutOfMemoryError" } },
+          { "match_phrase": { "message": "SQLTimeoutException" } }
+        ],
+        "minimum_should_match": 1
+      }
+    },
+    "_condition": "nombre de documents > 0"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "_nom": "workers-reserve-basse-{{STUDENT_ID}}",
+  "_niveau": "3 — saturation de ressource",
+  "_type_de_regle": "Elasticsearch query (variante ES|QL)",
+  "_fenetre": "10 minutes",
+  "_intervalle": "2 minutes",
+  "_condition": "au moins une ligne retournée",
+  "_seuil": "réserve moyenne de workers libres <= 2 sur la fenêtre",
+  "_pourquoi_idle_et_non_busy": "workers.busy élevé est NORMAL sous trafic. C'est la disparition de la RÉSERVE (workers.idle) qui annonce les 503 et le message AH00485 « scoreboard is full ».",
+  "_action": "Ticket en heures ouvrées. Surtout : ne pas augmenter MaxRequestWorkers avant d'avoir écarté l'hypothèse d'un backend lent (workers saturés + CPU bas = attente, pas manque de capacité).",
+  "esql": "FROM metrics-apache.status-{{NAMESPACE}} | WHERE @timestamp > NOW() - 10 minutes | WHERE host.name == \"{{STUDENT_HOST}}\" | STATS reserve = AVG(apache.status.workers.idle), occupes = AVG(apache.status.workers.busy) | WHERE reserve <= 2 | EVAL reserve = ROUND(reserve, 1), occupes = ROUND(occupes, 1) | KEEP reserve, occupes",
+  "_a_verifier": "Le nom exact des champs de métriques (apache.status.workers.idle / .busy) dépend de la version de l'intégration. Ouvrez un document de metrics-apache.status-{{NAMESPACE}} dans Discover avant d'activer la règle."
+}

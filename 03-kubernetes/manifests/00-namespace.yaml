@@ -1,0 +1,51 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  00-namespace.yaml — votre namespace de travail dans k3s ({{STUDENT_ID}})
+#
+#  Le ResourceQuota et le LimitRange ne sont pas décoratifs : les scénarios
+#  du chapitre provoquent volontairement des OOMKilled et des redémarrages.
+#  Sans bornes, un pod en boucle peut déstabiliser votre VM entière.
+#
+#  kubectl apply -f 00-namespace.yaml
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: "{{NAMESPACE}}"
+  labels:
+    app.kubernetes.io/part-of: shopflow
+    efi.formation/student: "{{STUDENT_ID}}"
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: quota-shopflow
+  namespace: "{{NAMESPACE}}"
+spec:
+  hard:
+    requests.cpu: "2"
+    requests.memory: 2Gi
+    limits.cpu: "4"
+    limits.memory: 4Gi
+    pods: "20"
+    persistentvolumeclaims: "4"
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: limites-par-defaut
+  namespace: "{{NAMESPACE}}"
+spec:
+  limits:
+    # Un conteneur sans limites peut consommer tout le nœud et pénaliser ses
+    # voisins. Le LimitRange garantit qu'il en a toujours, même si le
+    # manifeste les oublie.
+    - type: Container
+      default:
+        cpu: 200m
+        memory: 128Mi
+      defaultRequest:
+        cpu: 50m
+        memory: 64Mi
+      max:
+        cpu: "2"
+        memory: 1Gi

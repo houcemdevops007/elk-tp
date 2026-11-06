@@ -1,0 +1,11 @@
+{
+  "_nom": "latence-p95-tomcat-{{STUDENT_ID}}",
+  "_niveau": "2 — symptôme proche de l'impact",
+  "_fenetre": "10 minutes",
+  "_intervalle": "2 minutes",
+  "_seuil": "P95 de la durée des requêtes /api/ > 1 seconde",
+  "_pourquoi_un_percentile": "La moyenne masque la traîne : 95 requêtes à 50 ms et 5 requêtes à 8 s donnent une moyenne de 450 ms, qui paraît acceptable. Le P95 dit la vérité sur les utilisateurs les plus mal servis.",
+  "_pourquoi_pas_de_code_erreur": "Ce scénario ne produit AUCUNE erreur : code 200 partout. Sans cette règle, la lenteur du fil rouge passe totalement inaperçue.",
+  "esql": "FROM logs-shopflow_tomcat.access-{{NAMESPACE}} | WHERE @timestamp > NOW() - 10 minutes | WHERE url.original LIKE \"*/api/*\" | WHERE NOT url.original LIKE \"*/health*\" | STATS p95_ns = PERCENTILE(event.duration, 95), requetes = COUNT(*) | EVAL p95_ms = ROUND(p95_ns / 1000000.0, 0) | WHERE requetes >= 20 AND p95_ms > 1000 | KEEP p95_ms, requetes",
+  "_garde_fou": "requetes >= 20 : sans minimum d'événements, trois requêtes lentes la nuit déclenchent l'alerte."
+}

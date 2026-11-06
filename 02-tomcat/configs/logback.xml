@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  logback.xml — OPTIONNEL. Journalisation applicative en JSON ECS.
+
+  Par défaut, l'application ShopFlow de ce TP écrit déjà du JSON ECS sur la
+  sortie standard (méthode log() du servlet) : ce JSON arrive dans
+  catalina.out et est collecté sans parsing. Ce fichier n'est donc PAS
+  nécessaire pour réaliser le chapitre.
+
+  Il décrit la mise en œuvre que l'on retient en production, quand on
+  maîtrise le code. Pour l'activer, il faut ajouter trois JAR dans
+  WEB-INF/lib : logback-classic, logback-core et logback-ecs-encoder
+  (dépendance Maven co.elastic.logging:logback-ecs-encoder).
+  Sans ces JAR, ce fichier est simplement ignoré.
+
+  Ce que l'encodeur ECS apporte :
+    - aucun grok à maintenir : les champs arrivent déjà nommés et typés ;
+    - error.stack_trace contient la pile COMPLÈTE : plus de multiligne ;
+    - service.name cohérent avec les logs Apache : corrélation immédiate ;
+    - un MDC.put("commande.id", id) devient un champ requêtable.
+-->
+<configuration>
+
+  <appender name="ECS_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>{{CATALINA_LOGS}}/shopflow-app.json</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <fileNamePattern>{{CATALINA_LOGS}}/shopflow-app.%d{yyyy-MM-dd}.json</fileNamePattern>
+      <maxHistory>14</maxHistory>
+    </rollingPolicy>
+    <encoder class="co.elastic.logging.logback.EcsEncoder">
+      <serviceName>shopflow-api</serviceName>
+      <serviceVersion>2.4.1</serviceVersion>
+      <serviceEnvironment>{{STUDENT_ID}}</serviceEnvironment>
+      <includeMarkers>true</includeMarkers>
+      <stackTraceAsArray>false</stackTraceAsArray>
+    </encoder>
+  </appender>
+
+  <root level="INFO">
+    <appender-ref ref="ECS_FILE"/>
+  </root>
+
+  <logger name="com.novacommerce.shopflow" level="DEBUG"/>
+
+</configuration>

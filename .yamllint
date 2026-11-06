@@ -1,0 +1,18 @@
+# Configuration yamllint du tutoriel.
+# Les manifestes et les extraits de configuration sont commentés en détail :
+# on autorise des lignes plus longues que les 80 caractères par défaut.
+extends: default
+rules:
+  line-length:
+    max: 120
+    level: warning
+  comments:
+    min-spaces-from-content: 1
+  comments-indentation: disable
+  braces:
+    max-spaces-inside: 1
+  brackets:
+    max-spaces-inside: 1
+  truthy:
+    allowed-values: ["true", "false"]
+  document-start: disable

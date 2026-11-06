@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  server-xml-host.xml — EXTRAIT à reporter dans {{CATALINA_HOME}}/conf/server.xml
+  Candidat : {{STUDENT_ID}}
+
+  Ne remplacez pas server.xml par ce fichier : il ne contient QUE le bloc
+  <Host> et la Valve de journal d'accès. Copiez le bloc <Valve> à l'intérieur
+  de votre <Host name="localhost"> existant.
+
+  Sauvegardez avant toute modification :
+    sudo cp {{CATALINA_HOME}}/conf/server.xml {{CATALINA_HOME}}/conf/server.xml.avant-tp
+-->
+<Host name="localhost" appBase="webapps" unpackWARs="true" autoDeploy="true">
+
+  <!-- ───────────────────────────────────────────────────────────────────────
+       Journal d'accès de Tomcat.
+
+       %h hôte distant        %l identd        %u utilisateur authentifié
+       %t date                %r requête       %s statut        %b octets
+       %D durée en MILLISECONDES   ← Tomcat. Apache httpd, lui, est en
+                                       MICROSECONDES. C'est LE piège d'unité
+                                       du chapitre : un facteur 1 000.
+       %F délai avant le premier octet de réponse (ms)
+       %I nom du thread de traitement : relie une requête à sa pile d'appels
+       %{X-Request-Id}i en-tête injecté par Apache : le pont entre les deux
+                        sources de logs (chapitre 1)
+       ─────────────────────────────────────────────────────────────────────── -->
+  <Valve className="org.apache.catalina.valves.AccessLogValve"
+         directory="logs"
+         prefix="localhost_access_log"
+         suffix=".txt"
+         fileDateFormat=".yyyy-MM-dd"
+         rotatable="true"
+         pattern="%h %l %u %t &quot;%r&quot; %s %b %D %F %I &quot;%{X-Request-Id}i&quot;"
+         requestAttributesEnabled="true" />
+
+  <!-- requestAttributesEnabled="true" permet d'utiliser l'adresse réelle du
+       client transmise par le reverse proxy, au lieu de l'IP d'Apache.
+       Sans cette option, toutes vos requêtes semblent venir de 127.0.0.1. -->
+
+</Host>

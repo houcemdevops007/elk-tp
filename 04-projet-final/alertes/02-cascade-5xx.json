@@ -1,0 +1,16 @@
+{
+  "_nom": "cascade-5xx-{{STUDENT_ID}}",
+  "_niveau": "1 — impact utilisateur",
+  "_fenetre": "5 minutes",
+  "_intervalle": "1 minute",
+  "_but": "Détecter une panne qui traverse les tiers, et surtout IDENTIFIER le tier d'origine dans le message de l'alerte. Une alerte qui dit « il y a des 5xx » oblige à tout rouvrir ; une alerte qui dit « 5xx sur le frontal, backend en erreur, base saine » a déjà fait la moitié du diagnostic.",
+  "esql": "FROM logs-kubernetes.container_logs-{{NAMESPACE}} | WHERE @timestamp > NOW() - 5 minutes | EVAL tier = CASE(kubernetes.labels.app_kubernetes_io/component == \"frontend\", \"1-web\", kubernetes.labels.app_kubernetes_io/component == \"backend\", \"2-app\", kubernetes.labels.app_kubernetes_io/component == \"database\", \"3-db\", \"autre\") | EVAL erreur = CASE(http.response.status_code >= 500 OR log.level == \"ERROR\", 1, 0) | STATS evenements = COUNT(*), erreurs = SUM(erreur) BY tier | EVAL taux_pct = ROUND(erreurs * 100.0 / evenements, 1) | WHERE evenements >= 20 AND taux_pct > 10 | KEEP tier, evenements, erreurs, taux_pct | SORT tier ASC",
+  "_lecture_du_resultat": {
+    "les trois tiers en erreur": "la cause est le plus EN AVAL (la base) : les tiers amont ne font que propager",
+    "frontal et backend seulement": "la base est saine : chercher dans le backend (mémoire, dépendance, configuration)",
+    "frontal seulement": "le backend répond : chercher dans le frontal (proxy, timeout, configuration)",
+    "502 sur le frontal": "le backend a coupé ou répondu n'importe quoi",
+    "503 sur le frontal": "plus aucune ressource pour traiter - ou plus aucun backend dans le Service",
+    "504 sur le frontal": "le backend est VIVANT mais trop lent : c'est un incident de latence, pas de disponibilité"
+  }
+}

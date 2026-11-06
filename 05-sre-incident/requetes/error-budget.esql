@@ -1,0 +1,125 @@
+# ═════════════════════════════════════════════════════════════════════════════
+#  SLI, ERROR BUDGET ET BURN RATE — {{STUDENT_ID}}
+#
+#  Service       : {{SERVICE}}
+#  Périmètre     : {{PERIMETRE}}
+#  Objectif      : {{SLO_PCT}} % sur {{FENETRE_JOURS}} jours
+#  Seuil latence : {{LATENCE_MS}} ms
+#
+#  Budget d'erreur = (100 - objectif) % des événements éligibles.
+#  Pour un objectif de {{SLO_PCT}} %, le budget vaut donc
+#  {{BUDGET_RATIO}} × le nombre d'événements éligibles.
+# ═════════════════════════════════════════════════════════════════════════════
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  1. SLI DE DISPONIBILITÉ, BUDGET TOTAL, CONSOMMÉ, RESTANT
+# ─────────────────────────────────────────────────────────────────────────────
+FROM {{DATA_STREAM}}
+| WHERE @timestamp > NOW() - {{FENETRE_JOURS}} days
+| WHERE {{PERIMETRE}}
+| WHERE NOT url.path IN ("/health", "/server-status")
+| EVAL bonne = CASE(http.response.status_code < 500, 1, 0)
+| STATS eligibles = COUNT(*), bonnes = SUM(bonne)
+| EVAL mauvaises = eligibles - bonnes,
+       sli_pct = ROUND(bonnes * 100.0 / eligibles, 4),
+       budget_total = ROUND(eligibles * {{BUDGET_RATIO}}, 0)
+| EVAL budget_restant = budget_total - mauvaises,
+       budget_consomme_pct = ROUND(mauvaises * 100.0 / (eligibles * {{BUDGET_RATIO}}), 1)
+| KEEP eligibles, bonnes, mauvaises, sli_pct, budget_total, budget_restant, budget_consomme_pct
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  2. SLI DE LATENCE — un RATIO de requêtes rapides, pas un percentile
+#
+#  Pourquoi : un percentile ne se budgète pas. « 95 % des requêtes sous
+#  {{LATENCE_MS}} ms » se convertit directement en budget d'erreur ;
+#  « P95 < {{LATENCE_MS}} ms » ne se convertit en rien.
+#
+#  Et une requête qui ÉCHOUE vite n'est pas « bonne » : sans la condition
+#  sur le code de statut, le SLI de latence s'AMÉLIORE quand le service tombe.
+# ─────────────────────────────────────────────────────────────────────────────
+FROM {{DATA_STREAM}}
+| WHERE @timestamp > NOW() - {{FENETRE_JOURS}} days
+| WHERE {{PERIMETRE}}
+| WHERE NOT url.path IN ("/health", "/server-status")
+| WHERE event.duration IS NOT NULL
+| EVAL bonne = CASE(event.duration < {{LATENCE_NS}} AND http.response.status_code < 500, 1, 0)
+| STATS eligibles = COUNT(*), bonnes = SUM(bonne)
+| EVAL sli_pct = ROUND(bonnes * 100.0 / eligibles, 4),
+       mauvaises = eligibles - bonnes
+| EVAL budget_consomme_pct = ROUND(mauvaises * 100.0 / (eligibles * {{BUDGET_RATIO}}), 1)
+| KEEP eligibles, bonnes, mauvaises, sli_pct, budget_consomme_pct
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  3. COUVERTURE DE LA MESURE — contrôle obligatoire
+#
+#  Un SLI dont on ne mesure pas la couverture n'est pas fiable. Si une part
+#  importante des requêtes n'a pas de champ de durée et qu'on les exclut,
+#  le SLI ne porte que sur une fraction du trafic.
+# ─────────────────────────────────────────────────────────────────────────────
+FROM {{DATA_STREAM}}
+| WHERE @timestamp > NOW() - {{FENETRE_JOURS}} days
+| WHERE {{PERIMETRE}}
+| STATS total = COUNT(*), sans_duree = COUNT(*) WHERE event.duration IS NULL
+| EVAL couverture_pct = ROUND((total - sans_duree) * 100.0 / total, 2)
+| KEEP total, sans_duree, couverture_pct
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  4. BURN RATE SUR LA FENÊTRE LONGUE (1 heure)
+#
+#  burn rate = taux d'erreur observé / budget autorisé
+#  Un burn rate de 1 consomme exactement le budget sur la fenêtre du SLO.
+#  Un burn rate de 14,4 le consomme en 2 % du temps.
+# ─────────────────────────────────────────────────────────────────────────────
+FROM {{DATA_STREAM}}
+| WHERE @timestamp > NOW() - 1 hours
+| WHERE {{PERIMETRE}}
+| WHERE NOT url.path IN ("/health", "/server-status")
+| EVAL mauvaise = CASE(http.response.status_code >= 500, 1, 0)
+| STATS eligibles = COUNT(*), mauvaises = SUM(mauvaise)
+| EVAL taux_erreur = ROUND(mauvaises * 100.0 / eligibles, 3),
+       burn_rate = ROUND((mauvaises * 1.0 / eligibles) / {{BUDGET_RATIO}}, 2)
+| EVAL verdict = CASE(burn_rate > 14.4, "CRITIQUE - budget en 2 h 20",
+                      burn_rate > 6.0,  "ELEVE - budget en 6 h",
+                      burn_rate > 1.0,  "ATTENTION - budget epuise avant la fin de fenetre",
+                      "NOMINAL")
+| KEEP eligibles, mauvaises, taux_erreur, burn_rate, verdict
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  5. BURN RATE SUR LA FENÊTRE COURTE (5 minutes)
+#
+#  Sert UNIQUEMENT à confirmer que le problème est TOUJOURS en cours.
+#  Seule, cette fenêtre déclencherait sur le moindre micro-incident.
+# ─────────────────────────────────────────────────────────────────────────────
+FROM {{DATA_STREAM}}
+| WHERE @timestamp > NOW() - 5 minutes
+| WHERE {{PERIMETRE}}
+| WHERE NOT url.path IN ("/health", "/server-status")
+| EVAL mauvaise = CASE(http.response.status_code >= 500, 1, 0)
+| STATS eligibles = COUNT(*), mauvaises = SUM(mauvaise)
+| EVAL burn_rate = ROUND((mauvaises * 1.0 / eligibles) / {{BUDGET_RATIO}}, 2)
+| KEEP eligibles, mauvaises, burn_rate
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  6. CONSOMMATION JOUR PAR JOUR
+#
+#  Un budget consommé à 80 % ne dit pas la même chose s'il l'a été
+#  régulièrement ou en une seule panne de vingt minutes. La deuxième
+#  situation est préférable : elle a une cause, donc une correction.
+# ─────────────────────────────────────────────────────────────────────────────
+FROM {{DATA_STREAM}}
+| WHERE @timestamp > NOW() - {{FENETRE_JOURS}} days
+| WHERE {{PERIMETRE}}
+| WHERE NOT url.path IN ("/health", "/server-status")
+| EVAL jour = DATE_TRUNC(1 day, @timestamp)
+| EVAL mauvaise = CASE(http.response.status_code >= 500, 1, 0)
+| STATS eligibles = COUNT(*), mauvaises = SUM(mauvaise) BY jour
+| EVAL sli_pct = ROUND((eligibles - mauvaises) * 100.0 / eligibles, 3),
+       budget_du_jour = ROUND(eligibles * {{BUDGET_RATIO}}, 0)
+| EVAL consomme_pct = ROUND(mauvaises * 100.0 / (eligibles * {{BUDGET_RATIO}}), 1)
+| SORT jour ASC

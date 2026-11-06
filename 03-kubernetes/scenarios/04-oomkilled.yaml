@@ -1,0 +1,71 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  PANNE 4 — OOMKilled ({{STUDENT_ID}})
+#
+#  Le conteneur alloue de la mémoire jusqu'à dépasser sa limite. La mémoire
+#  n'est pas compressible : on ne peut pas « ralentir » un dépassement.
+#  Le noyau tue donc le conteneur IMMÉDIATEMENT, sans préavis, et sans
+#  aucune trace dans les logs applicatifs.
+#
+#  Le volume emptyDir en medium Memory est un tmpfs : tout ce qu'on y écrit
+#  compte dans la mémoire du conteneur. C'est une façon simple et fiable de
+#  reproduire la montée mémoire d'une application qui fuit.
+#
+#  Diagnostic attendu :
+#    kubectl -n {{NAMESPACE}} describe pod <pod>
+#      -> Last State: Terminated, Reason: OOMKilled, Exit Code: 137
+#    métrique décisive : kubernetes.container.status.last_terminated_reason
+#    courbe : working set qui monte puis est COUPÉ net (jamais de descente)
+#
+#  Correction : limite à 256Mi et ballast réduit — ou, dans la vraie vie,
+#  corriger la fuite (chapitre 2).
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: panne-oom
+  namespace: "{{NAMESPACE}}"
+  labels:
+    app.kubernetes.io/name: panne-oom
+    efi.formation/scenario: "04-oomkilled"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: panne-oom
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: panne-oom
+        efi.formation/scenario: "04-oomkilled"
+    spec:
+      containers:
+        - name: worker
+          image: "{{DEMO_IMAGE}}"
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "allocation progressive de memoire (10 Mo toutes les 5 s)"
+              i=0
+              while true; do
+                i=$(( i + 10 ))
+                dd if=/dev/zero of=/ballast/bloc bs=1M count=$i 2>/dev/null
+                echo "{\"@timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\",\"log.level\":\"WARN\",\"service.name\":\"shopflow-worker\",\"message\":\"memoire retenue: ${i} Mo\"}"
+                sleep 5
+              done
+          volumeMounts:
+            - name: ballast
+              mountPath: /ballast
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              # VOLONTAIREMENT basse : l'OOMKill survient en moins d'une minute.
+              cpu: 100m
+              memory: 64Mi
+      volumes:
+        - name: ballast
+          emptyDir:
+            # medium: Memory -> tmpfs : compté dans la mémoire du conteneur.
+            medium: Memory
+            sizeLimit: 512Mi

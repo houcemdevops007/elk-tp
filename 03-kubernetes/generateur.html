@@ -1,0 +1,610 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Générateur — Chapitre 3 : Kubernetes (k3s)</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#ffffff; --ink:#1b1f24; --muted:#5a6472; --line:#dfe3e8;
+    --accent:#1f6feb; --accent-ink:#ffffff; --ok:#0f7b4f; --warn:#8a5a00; --err:#b42318;
+    --code-bg:#f2f4f7; --code-ink:#1b1f24; --tok-com:#6a737d; --tok-str:#0a7b34;
+    --tok-key:#9a3bbd; --tok-num:#b4530a; --tok-tag:#1f6feb;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#14171c; --card:#1b1f25; --ink:#e7ebf0; --muted:#9aa5b1; --line:#2c333c;
+      --accent:#4c8dff; --accent-ink:#0c1016; --ok:#4ad295; --warn:#e0b341; --err:#ff7b72;
+      --code-bg:#11151a; --code-ink:#e7ebf0; --tok-com:#8b949e; --tok-str:#7ee2a8;
+      --tok-key:#d2a8ff; --tok-num:#ffa657; --tok-tag:#79c0ff;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:1040px;margin:0 auto;padding:18px 16px 56px}
+  h1{font-size:1.4rem;margin:.2em 0 .1em}
+  h2{font-size:1.1rem;margin:1.6em 0 .6em;padding-bottom:.3em;border-bottom:1px solid var(--line)}
+  p.sub{color:var(--muted);margin:.2em 0 1.2em}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:0 0 16px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px 16px}
+  label{display:block;font-weight:600;font-size:.86rem;margin:0 0 .25em}
+  .req{color:var(--err)}
+  input,select{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:7px;
+    background:var(--card);color:var(--ink);font:inherit;font-size:.92rem}
+  input:focus,select:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+  input[aria-invalid="true"]{border-color:var(--err);background:rgba(180,35,24,.06)}
+  .help{color:var(--muted);font-size:.78rem;margin:.3em 0 0}
+  .err{color:var(--err);font-size:.78rem;margin:.3em 0 0;font-weight:600}
+  .err:empty,.help:empty{display:none}
+  table.cst{width:100%;border-collapse:collapse;font-size:.86rem}
+  table.cst th,table.cst td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  table.cst th{color:var(--muted);font-weight:600;white-space:nowrap}
+  table.cst td code{font-size:.92em}
+  .actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px}
+  button{font:inherit;font-weight:600;border-radius:7px;border:1px solid var(--line);
+    background:var(--card);color:var(--ink);padding:8px 14px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+  button.sm{padding:4px 10px;font-size:.8rem;font-weight:600}
+  .msg{font-size:.86rem;font-weight:600}
+  .msg.ok{color:var(--ok)} .msg.bad{color:var(--err)}
+  .blk{border:1px solid var(--line);border-radius:9px;margin:0 0 14px;overflow:hidden;background:var(--card)}
+  .blk>header{display:flex;gap:8px;align-items:center;justify-content:space-between;
+    padding:8px 10px;background:var(--code-bg);border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .blk h3{margin:0;font-size:.9rem;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .blk .path{color:var(--muted);font-size:.76rem;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .blk .btns{display:flex;gap:6px}
+  pre{margin:0;padding:12px;overflow-x:auto;background:var(--code-bg);color:var(--code-ink);
+    font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;tab-size:2}
+  .tc{color:var(--tok-com);font-style:italic} .ts{color:var(--tok-str)}
+  .tk{color:var(--tok-key);font-weight:600} .tn{color:var(--tok-num)} .tg{color:var(--tok-tag)}
+  .note{border-left:4px solid var(--warn);background:rgba(224,179,65,.10);
+    border-radius:0 8px 8px 0;padding:10px 12px;font-size:.86rem;margin:0 0 16px}
+  .note.sec{border-left-color:var(--err);background:rgba(180,35,24,.08)}
+  .hidden{display:none}
+  .rec{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.82rem;
+    color:var(--muted);word-break:break-all}
+  footer{color:var(--muted);font-size:.8rem;margin-top:26px;border-top:1px solid var(--line);padding-top:10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 id="t-titre">Générateur — Chapitre 3 : Kubernetes (k3s)</h1>
+  <p class="sub" id="t-intro"></p>
+
+  <div class="note sec">
+    <strong>Confidentialité.</strong> Cette page fonctionne entièrement dans votre navigateur :
+    aucun appel réseau, aucune donnée enregistrée, aucun cookie. Le token d'enrôlement que vous
+    saisissez n'est jamais pré-rempli et disparaît dès que vous fermez l'onglet.
+  </div>
+
+  <h2>1. Valeurs fixes de la plateforme EFI</h2>
+  <div class="card">
+    <table class="cst"><tbody id="t-cst"></tbody></table>
+  </div>
+
+  <h2>2. Paramètres de votre VM</h2>
+  <div class="card">
+    <form id="t-form" novalidate><div class="grid" id="t-fields"></div></form>
+    <div class="actions">
+      <button type="button" class="primary" id="t-gen">Générer</button>
+      <button type="button" id="t-reset">Réinitialiser</button>
+      <span class="msg" id="t-msg"></span>
+    </div>
+  </div>
+
+  <div id="t-out" class="hidden">
+    <h2>3. Fichiers et commandes générés</h2>
+    <div class="card" id="t-recap"></div>
+    <div id="t-blocks"></div>
+  </div>
+
+  <footer>
+    Khlifi Houcem — Formateur DevSecOps et Cloud · Plateforme EFILearn ·
+    Elastic Observability (version condensée). Générateur autonome, sans dépendance externe.
+  </footer>
+</div>
+
+<script>
+"use strict";
+const PAYLOAD = {
+ "chapitre": "Générateur — Chapitre 3 : Kubernetes (k3s)",
+ "intro": "Renseignez les paramètres de votre cluster k3s : la page produit les manifestes du chapitre, les six scénarios de panne et les scripts de vérification, avec vos valeurs. Les modèles sont exactement ceux du dossier 03-kubernetes/ du tutoriel.",
+ "constants": [
+  {
+   "label": "Version de la stack",
+   "value": "9.5.5",
+   "note": "La version de l'Elastic Agent doit etre identique a celle du cluster."
+  },
+  {
+   "label": "Cluster Elasticsearch",
+   "value": "efi-elk-training",
+   "note": "elk-es0 172.16.3.50 / elk-es1 172.16.3.51 / elk-es2 172.16.3.52 (master + data, :9200 / :9300)"
+  },
+  {
+   "label": "API Elasticsearch",
+   "value": "https://172.16.3.50:9200"
+  },
+  {
+   "label": "Kibana (elk-kibana0)",
+   "value": "https://172.16.3.53:5601",
+   "note": "Acces candidat par le reverse proxy Nginx : https://elk.efi-academy.com/tp/"
+  },
+  {
+   "label": "Fleet Server (elk-fleet0)",
+   "value": "https://172.16.3.55:8220",
+   "note": "Plan de controle : enrolement, politiques, etat des agents."
+  }
+ ],
+ "fixed": {
+  "ES_VERSION": "9.5.5",
+  "ES_CLUSTER": "efi-elk-training",
+  "ES_URL": "https://172.16.3.50:9200",
+  "ES_URL1": "https://172.16.3.51:9200",
+  "ES_URL2": "https://172.16.3.52:9200",
+  "ES_IP0": "172.16.3.50",
+  "ES_IP1": "172.16.3.51",
+  "ES_IP2": "172.16.3.52",
+  "KIBANA_URL": "https://172.16.3.53:5601",
+  "KIBANA_PUBLIC": "https://elk.efi-academy.com/tp/",
+  "KIBANA_IP": "172.16.3.53",
+  "FLEET_URL": "https://172.16.3.55:8220",
+  "FLEET_IP": "172.16.3.55",
+  "LOGSTASH_BEATS": "172.16.3.54:5044",
+  "LOGSTASH_HTTP": "https://172.16.3.54:8443",
+  "LOGSTASH_IP": "172.16.3.54",
+  "MINIO_URL": "http://172.16.50.10:9000",
+  "EFI_NET": "172.16.0.0/16"
+ },
+ "fields": [
+  {
+   "key": "NUM",
+   "label": "Numéro étudiant",
+   "type": "select",
+   "required": true,
+   "options": [
+    "01",
+    "02",
+    "03",
+    "04",
+    "05",
+    "06",
+    "07",
+    "08",
+    "09",
+    "10",
+    "11",
+    "12",
+    "13",
+    "14",
+    "15",
+    "16",
+    "17",
+    "18",
+    "19",
+    "20"
+   ],
+   "default": "01",
+   "help": "Détermine votre identifiant, votre namespace Kubernetes, le namespace de vos data streams et votre politique d'agent k8s."
+  },
+  {
+   "key": "K3S_CLUSTER",
+   "label": "Nom du cluster k3s",
+   "type": "text",
+   "required": true,
+   "default": "k3s-student",
+   "pattern": "^[a-z0-9]([a-z0-9.-]{0,61}[a-z0-9])?$",
+   "error": "Nom invalide : minuscules, chiffres, points et tirets.",
+   "help": "Sert d'étiquette dans vos dashboards quand plusieurs clusters coexistent."
+  },
+  {
+   "key": "KUBECONFIG",
+   "label": "Chemin du kubeconfig",
+   "type": "text",
+   "required": true,
+   "default": "/etc/rancher/k3s/k3s.yaml",
+   "pattern": "^/[^\\s]*[^/\\s]$",
+   "error": "Chemin absolu attendu.",
+   "help": "Emplacement par défaut de k3s. Il appartient à root : préfixez vos commandes par sudo, ou copiez-le dans ~/.kube/config."
+  },
+  {
+   "key": "NODE_NAME",
+   "label": "Nom du nœud k3s",
+   "type": "text",
+   "required": true,
+   "placeholder": "ex. vm-student07",
+   "pattern": "^[a-z0-9]([a-z0-9.-]{0,61}[a-z0-9])?$",
+   "error": "Nom de nœud invalide.",
+   "help": "Exactement la valeur affichée par kubectl get nodes : c'est le kubernetes.node.name de vos documents."
+  },
+  {
+   "key": "DEMO_IMAGE",
+   "label": "Image de l'application de démonstration",
+   "type": "text",
+   "required": true,
+   "default": "busybox:1.36",
+   "pattern": "^[a-z0-9][a-z0-9._/-]*:[A-Za-z0-9._-]+$",
+   "error": "Format attendu : image:tag.",
+   "help": "Aucune image à construire. Si le registre public est inaccessible depuis la VM, demandez au formateur l'image pré-chargée ou le miroir interne."
+  },
+  {
+   "key": "KSM_VERSION",
+   "label": "Version de kube-state-metrics",
+   "type": "text",
+   "required": true,
+   "default": "v2.13.0",
+   "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+$",
+   "error": "Format attendu : vX.Y.Z.",
+   "help": "k3s ne fournit pas kube-state-metrics : vous le déployez. Vérifiez la version disponible sur votre registre."
+  },
+  {
+   "key": "CA_PATH",
+   "label": "Autorité de certification interne",
+   "type": "text",
+   "required": true,
+   "default": "/etc/efi/pki/ca.crt",
+   "pattern": "^/[^\\s]*[^/\\s]$",
+   "error": "Chemin absolu attendu.",
+   "help": "Déposée dans un Secret monté par le DaemonSet, pour valider le certificat de Fleet Server."
+  },
+  {
+   "key": "ENROLL_TOKEN_K8S",
+   "label": "Token d'enrôlement de la politique k8s",
+   "type": "password",
+   "required": true,
+   "placeholder": "token de policy-studentXX-k8s",
+   "help": "SECRET, et DIFFÉRENT de celui des chapitres 1 et 2 : il désigne la politique qui porte l'intégration Kubernetes. Il n'est jamais écrit dans un manifeste, mais dans un Secret."
+  },
+  {
+   "key": "ES_API_KEY",
+   "label": "Clé d'API Elasticsearch (facultatif)",
+   "type": "password",
+   "required": false,
+   "placeholder": "pour le script de vérification",
+   "help": "Peut rester vide et être passée par la variable ES_API_KEY."
+  }
+ ],
+ "derived": {
+  "STUDENT_ID": "student{{NUM}}",
+  "NAMESPACE": "student{{NUM}}",
+  "POLICY": "policy-student{{NUM}}",
+  "POLICY_K8S": "policy-student{{NUM}}-k8s",
+  "SPACE": "student{{NUM}}"
+ },
+ "recap": [
+  "STUDENT_ID",
+  "NAMESPACE",
+  "POLICY_K8S",
+  "K3S_CLUSTER",
+  "NODE_NAME",
+  "KUBECONFIG",
+  "DEMO_IMAGE",
+  "KSM_VERSION",
+  "ES_VERSION",
+  "FLEET_URL"
+ ],
+ "commands": [
+  {
+   "name": "parcours.sh",
+   "title": "Séquence complète du chapitre, étape par étape",
+   "content": "#!/usr/bin/env bash\n# ─────────────────────────────────────────────────────────────────────────────\n#  parcours.sh — séquence complète du chapitre 3, pour {{STUDENT_ID}}\n#  Cluster k3s local, dont vous êtes administrateur.\n# ─────────────────────────────────────────────────────────────────────────────\n\n# ÉTAPE 1 — Prérequis --------------------------------------------------------\nsudo systemctl status k3s --no-pager | head -5\nexport KUBECONFIG={{KUBECONFIG}}\nkubectl version --short 2>/dev/null || kubectl version\nkubectl get nodes -o wide\nkubectl top nodes 2>/dev/null || echo \"(metrics-server absent : sans effet sur ce TP)\"\n\n#  Le kubelet expose ses métriques sur le port 10250 : l'agent y accède avec\n#  le jeton de son ServiceAccount. Vérification de la lisibilité :\nkubectl get --raw \"/api/v1/nodes/$(kubectl get node -o jsonpath='{.items[0].metadata.name}')/proxy/stats/summary\" \\\n  | head -c 300 ; echo\n\n#  Les fichiers de log des conteneurs, sur le NŒUD :\nsudo ls /var/log/pods | head\nsudo ls /var/log/containers | head -3\n\n# ÉTAPE 2 — kube-state-metrics (k3s ne le fournit pas) -----------------------\nkubectl apply -f manifests/10-kube-state-metrics.yaml\nkubectl -n kube-system rollout status deploy/kube-state-metrics --timeout=120s\nkubectl -n kube-system get pods -l app.kubernetes.io/name=kube-state-metrics\n\n# ÉTAPE 3 — Namespace, quota et limites --------------------------------------\nkubectl apply -f manifests/00-namespace.yaml\nkubectl describe ns {{NAMESPACE}} | sed -n '/Resource Quotas/,$p'\n\n# ÉTAPE 4 — Agent en DaemonSet -----------------------------------------------\nkubectl create namespace elastic-agent --dry-run=client -o yaml | kubectl apply -f -\n#  Le token n'apparaît JAMAIS dans un manifeste : il va dans un Secret.\nkubectl -n elastic-agent create secret generic elastic-agent-creds \\\n  --from-literal=enrollment-token='<votre-token-k8s>' \\\n  --dry-run=client -o yaml | kubectl apply -f -\nkubectl -n elastic-agent create secret generic elastic-agent-ca \\\n  --from-file=ca.crt={{CA_PATH}} \\\n  --dry-run=client -o yaml | kubectl apply -f -\nkubectl apply -f manifests/20-elastic-agent-daemonset.yaml\nkubectl -n elastic-agent rollout status ds/elastic-agent --timeout=180s\nkubectl -n elastic-agent get ds,pods -o wide\n\n# ✅ Vérification : un pod par nœud, tous Running, et l'agent visible dans\n#    Fleet -> Agents, rattaché à la politique {{POLICY_K8S}}.\nkubectl -n elastic-agent logs ds/elastic-agent --tail=30\n\n# ÉTAPE 5 — Application de démonstration -------------------------------------\nkubectl apply -f manifests/30-shopflow-demo.yaml\nkubectl -n {{NAMESPACE}} rollout status deploy/shopflow-worker --timeout=120s\nkubectl -n {{NAMESPACE}} logs -l app.kubernetes.io/name=shopflow-worker --tail=5 --prefix\n\n# ✅ Vérification de la collecte\nES_API_KEY='<votre-cle>' ./scripts/verif-k8s.sh\n\n# ÉTAPE 6 — Les six pannes, une par une --------------------------------------\n#  Pour chacune : appliquer, qualifier en moins de deux minutes, corriger.\nkubectl apply -f scenarios/01-pending.yaml\nkubectl apply -f scenarios/02-crashloop-config.yaml\nkubectl apply -f scenarios/03-crashloop-probe.yaml\nkubectl apply -f scenarios/04-oomkilled.yaml\nkubectl apply -f scenarios/05-imagepull.yaml\nkubectl apply -f scenarios/06-throttling.yaml\n\n#  Les quatre commandes de qualification, dans l'ordre. POD est le nom du\n#  pod à examiner : relevez-le dans la sortie de la premiere commande.\nPOD=\"panne-oom-xxxxxxxxx-xxxxx\"\nkubectl -n {{NAMESPACE}} get pods -o wide\nkubectl -n {{NAMESPACE}} describe pod \"$POD\" | sed -n '/Last State/,/Events/p'\nkubectl -n {{NAMESPACE}} logs \"$POD\" --previous\nkubectl -n {{NAMESPACE}} get events --sort-by=.lastTimestamp | tail -20\n\n# ÉTAPE 7 — Nettoyage --------------------------------------------------------\n./scripts/reset.sh\n",
+   "lang": "bash"
+  },
+  {
+   "name": "verif-k8s.sh",
+   "title": "Points de contrôle et tableau de diagnostic des pods",
+   "content": "#!/usr/bin/env bash\n# ─────────────────────────────────────────────────────────────────────────────\n#  verif-k8s.sh — points de contrôle de la collecte Kubernetes ({{STUDENT_ID}})\n#  Usage :  ES_API_KEY='<cle>' ./verif-k8s.sh\n# ─────────────────────────────────────────────────────────────────────────────\nset -uo pipefail\n\nES_URL=\"{{ES_URL}}\"\nCA_PATH=\"{{CA_PATH}}\"\nNS=\"{{NAMESPACE}}\"\nCLE_GENEREE='{{ES_API_KEY}}'\nCLE=\"${ES_API_KEY:-$CLE_GENEREE}\"\nexport KUBECONFIG=\"{{KUBECONFIG}}\"\n\nes() { curl -sS --cacert \"$CA_PATH\" -H \"Authorization: ApiKey ${CLE}\" \"$@\"; }\n\necho \"═══ 1. LA SOURCE PRODUIT-ELLE ? ═══\"\nkubectl -n \"$NS\" get pods -o wide\necho \"--- logs vus par kubectl (la vue COURT TERME) ---\"\nkubectl -n \"$NS\" logs -l app.kubernetes.io/name=shopflow-worker --tail=3 --prefix 2>/dev/null\necho \"--- fichiers correspondants sur le nœud ---\"\nsudo ls -l /var/log/containers/ 2>/dev/null | grep \"$NS\" | head -3\n\necho\necho \"═══ 2. L'AGENT EST-IL SAIN ? ═══\"\nkubectl -n elastic-agent get ds elastic-agent \\\n  -o custom-columns='SOUHAITES:.status.desiredNumberScheduled,PRETS:.status.numberReady'\nkubectl -n elastic-agent get pods -o wide\necho \"--- erreurs récentes de l'agent ---\"\nkubectl -n elastic-agent logs ds/elastic-agent --tail=200 2>/dev/null \\\n  | grep -i -m5 'error\\|fail' || echo \"  aucune erreur récente (bon signe)\"\n\necho\necho \"═══ 3. kube-state-metrics répond-il ? ═══\"\nkubectl -n kube-system get pods -l app.kubernetes.io/name=kube-state-metrics\nPOD=\"$(kubectl -n kube-system get pods -l app.kubernetes.io/name=kube-state-metrics \\\n       -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)\"\nif [ -n \"$POD\" ]; then\n  kubectl -n kube-system exec \"$POD\" -- wget -qO- 127.0.0.1:8080/metrics 2>/dev/null \\\n    | grep -c '^kube_' | sed 's/^/  séries exposées : /' \\\n    || echo \"  (exec indisponible : vérifiez depuis le Service)\"\nfi\n\necho\necho \"═══ 4. ELASTICSEARCH A-T-IL REÇU ? ═══\"\nfor DS in \"logs-kubernetes.container_logs-${NS}\" \\\n          \"metrics-kubernetes.container-${NS}\" \\\n          \"metrics-kubernetes.pod-${NS}\" \\\n          \"metrics-kubernetes.state_container-${NS}\" \\\n          \"metrics-kubernetes.state_pod-${NS}\" \\\n          \"metrics-kubernetes.node-${NS}\" \\\n          \"metrics-kubernetes.event-${NS}\"; do\n  N=$(es \"${ES_URL}/${DS}/_count\" \\\n      | python3 -c 'import json,sys; print(json.load(sys.stdin).get(\"count\",\"absent\"))' 2>/dev/null || echo \"absent\")\n  printf \"  %-50s %s\\n\" \"$DS\" \"$N\"\ndone\n\necho\necho \"--- les métadonnées sont-elles bien là ? (sinon : RBAC de l'agent) ---\"\nes \"${ES_URL}/logs-kubernetes.container_logs-${NS}/_search?size=1&sort=@timestamp:desc\" \\\n  | python3 -c '\nimport json,sys\nh = json.load(sys.stdin).get(\"hits\", {}).get(\"hits\", [])\nif not h:\n    print(\"  aucun document\"); raise SystemExit\nk = h[0][\"_source\"].get(\"kubernetes\", {})\nfor champ in (\"namespace\", \"node\", \"pod\", \"container\", \"deployment\", \"labels\"):\n    print(f\"  kubernetes.{champ:<12}:\", k.get(champ))\nprint(\"  log.level             :\", h[0][\"_source\"].get(\"log\", {}).get(\"level\"))\nprint(\"  message               :\", str(h[0][\"_source\"].get(\"message\"))[:80])\n'\n\necho\necho \"--- TABLEAU DE DIAGNOSTIC : état réel de vos pods, vu par Elastic ---\"\nes -H 'Content-Type: application/json' \\\n  \"${ES_URL}/metrics-kubernetes.state_container-${NS}/_search?size=0\" -d '{\n  \"query\": { \"range\": { \"@timestamp\": { \"gte\": \"now-15m\" } } },\n  \"aggs\": { \"par_pod\": { \"terms\": { \"field\": \"kubernetes.pod.name\", \"size\": 20 },\n    \"aggs\": {\n      \"restarts\": { \"max\": { \"field\": \"kubernetes.container.status.restarts\" } },\n      \"raison\":   { \"terms\": { \"field\": \"kubernetes.container.status.last_terminated_reason\", \"size\": 1 } }\n    } } } }' \\\n  | python3 -c '\nimport json, sys\na = json.load(sys.stdin).get(\"aggregations\", {}).get(\"par_pod\", {}).get(\"buckets\", [])\nif not a:\n    print(\"  (aucune metrique state_container : kube-state-metrics est-il collecte ?)\")\nprint(\"  %-44s %12s  %s\" % (\"pod\", \"redemarrages\", \"raison du dernier arret\"))\nfor b in a:\n    r = b[\"raison\"][\"buckets\"]\n    print(\"  %-44s %12d  %s\" % (b[\"key\"][:44],\n                                int(b[\"restarts\"][\"value\"] or 0),\n                                r[0][\"key\"] if r else \"-\"))\n'\necho\necho \"═══ Terminé ═══\"\n",
+   "lang": "bash"
+  },
+  {
+   "name": "reset.sh",
+   "title": "Remise en état du namespace après les scénarios",
+   "content": "#!/usr/bin/env bash\n# ─────────────────────────────────────────────────────────────────────────────\n#  reset.sh — remet le namespace {{NAMESPACE}} dans un état sain\n#\n#  Supprime les déploiements de panne, laisse l'application de démonstration\n#  et la chaîne de collecte en place.\n# ─────────────────────────────────────────────────────────────────────────────\nset -uo pipefail\nexport KUBECONFIG=\"{{KUBECONFIG}}\"\nNS=\"{{NAMESPACE}}\"\n\necho \"== Suppression des déploiements de scénario ==\"\nkubectl -n \"$NS\" delete deploy -l 'efi.formation/scenario' --ignore-not-found\n\necho \"== État après nettoyage ==\"\nkubectl -n \"$NS\" get pods -o wide\nkubectl -n \"$NS\" get events --sort-by=.lastTimestamp | tail -5\n\necho \"== Rétablissement de l'application de démonstration ==\"\nkubectl -n \"$NS\" rollout restart deploy/shopflow-worker 2>/dev/null || true\nkubectl -n \"$NS\" rollout status deploy/shopflow-worker --timeout=90s 2>/dev/null || true\n\ncat <<'FIN'\n\nÀ faire à la main, en fin de formation :\n  - désactiver vos règles d'alerte dans Kibana (une règle oubliée continue\n    de s'exécuter indéfiniment sur le cluster partagé) ;\n  - conserver vos dashboards : ce sont des livrables ;\n  - NE PAS supprimer le DaemonSet : le chapitre 4 s'appuie dessus.\nPour tout supprimer malgré tout :\n  kubectl delete ns {{NAMESPACE}} elastic-agent\nFIN\n",
+   "lang": "bash"
+  }
+ ],
+ "files": [
+  {
+   "name": "00-namespace.yaml",
+   "path": "Namespace + ResourceQuota + LimitRange",
+   "content": "# ─────────────────────────────────────────────────────────────────────────────\n#  00-namespace.yaml — votre namespace de travail dans k3s ({{STUDENT_ID}})\n#\n#  Le ResourceQuota et le LimitRange ne sont pas décoratifs : les scénarios\n#  du chapitre provoquent volontairement des OOMKilled et des redémarrages.\n#  Sans bornes, un pod en boucle peut déstabiliser votre VM entière.\n#\n#  kubectl apply -f 00-namespace.yaml\n# ─────────────────────────────────────────────────────────────────────────────\napiVersion: v1\nkind: Namespace\nmetadata:\n  name: \"{{NAMESPACE}}\"\n  labels:\n    app.kubernetes.io/part-of: shopflow\n    efi.formation/student: \"{{STUDENT_ID}}\"\n---\napiVersion: v1\nkind: ResourceQuota\nmetadata:\n  name: quota-shopflow\n  namespace: \"{{NAMESPACE}}\"\nspec:\n  hard:\n    requests.cpu: \"2\"\n    requests.memory: 2Gi\n    limits.cpu: \"4\"\n    limits.memory: 4Gi\n    pods: \"20\"\n    persistentvolumeclaims: \"4\"\n---\napiVersion: v1\nkind: LimitRange\nmetadata:\n  name: limites-par-defaut\n  namespace: \"{{NAMESPACE}}\"\nspec:\n  limits:\n    # Un conteneur sans limites peut consommer tout le nœud et pénaliser ses\n    # voisins. Le LimitRange garantit qu'il en a toujours, même si le\n    # manifeste les oublie.\n    - type: Container\n      default:\n        cpu: 200m\n        memory: 128Mi\n      defaultRequest:\n        cpu: 50m\n        memory: 64Mi\n      max:\n        cpu: \"2\"\n        memory: 1Gi\n",
+   "lang": "yaml"
+  },
+  {
+   "name": "10-kube-state-metrics.yaml",
+   "path": "l'ÉTAT déclaré du cluster — absent de k3s par défaut",
+   "content": "# ─────────────────────────────────────────────────────────────────────────────\n#  10-kube-state-metrics.yaml — l'ÉTAT DÉCLARÉ du cluster ({{STUDENT_ID}})\n#\n#  k3s ne fournit PAS kube-state-metrics : il faut le déployer.\n#\n#  Pourquoi c'est indispensable :\n#    - le kubelet et cAdvisor MESURENT la consommation réelle (CPU, mémoire) ;\n#    - kube-state-metrics DÉCLARE l'état : phases des pods, nombre de\n#      redémarrages, requests et limits déclarés, RAISON du dernier arrêt\n#      (OOMKilled...), réplicas désirés contre disponibles.\n#  Sans lui, vous ne pouvez pas distinguer un OOMKilled d'une erreur\n#  applicative : l'information « last terminated reason » vient de là.\n#\n#  kubectl apply -f 10-kube-state-metrics.yaml\n#  kubectl -n kube-system rollout status deploy/kube-state-metrics\n# ─────────────────────────────────────────────────────────────────────────────\napiVersion: v1\nkind: ServiceAccount\nmetadata:\n  name: kube-state-metrics\n  namespace: kube-system\n  labels:\n    app.kubernetes.io/name: kube-state-metrics\n---\napiVersion: rbac.authorization.k8s.io/v1\nkind: ClusterRole\nmetadata:\n  name: kube-state-metrics\n  labels:\n    app.kubernetes.io/name: kube-state-metrics\nrules:\n  # LECTURE SEULE sur l'ensemble des objets dont on veut l'état.\n  # Aucun verbe d'écriture : un composant d'observabilité n'écrit jamais\n  # dans le cluster qu'il observe.\n  - apiGroups: [\"\"]\n    resources:\n      - configmaps\n      - secrets\n      - nodes\n      - pods\n      - services\n      - serviceaccounts\n      - resourcequotas\n      - replicationcontrollers\n      - limitranges\n      - persistentvolumeclaims\n      - persistentvolumes\n      - namespaces\n      - endpoints\n      - events\n    verbs: [\"list\", \"watch\"]\n  - apiGroups: [\"apps\"]\n    resources: [statefulsets, daemonsets, deployments, replicasets]\n    verbs: [\"list\", \"watch\"]\n  - apiGroups: [\"batch\"]\n    resources: [cronjobs, jobs]\n    verbs: [\"list\", \"watch\"]\n  - apiGroups: [\"autoscaling\"]\n    resources: [horizontalpodautoscalers]\n    verbs: [\"list\", \"watch\"]\n  - apiGroups: [\"policy\"]\n    resources: [poddisruptionbudgets]\n    verbs: [\"list\", \"watch\"]\n  - apiGroups: [\"storage.k8s.io\"]\n    resources: [storageclasses, volumeattachments]\n    verbs: [\"list\", \"watch\"]\n  - apiGroups: [\"networking.k8s.io\"]\n    resources: [networkpolicies, ingresses]\n    verbs: [\"list\", \"watch\"]\n---\napiVersion: rbac.authorization.k8s.io/v1\nkind: ClusterRoleBinding\nmetadata:\n  name: kube-state-metrics\nroleRef:\n  apiGroup: rbac.authorization.k8s.io\n  kind: ClusterRole\n  name: kube-state-metrics\nsubjects:\n  - kind: ServiceAccount\n    name: kube-state-metrics\n    namespace: kube-system\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: kube-state-metrics\n  namespace: kube-system\n  labels:\n    app.kubernetes.io/name: kube-state-metrics\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app.kubernetes.io/name: kube-state-metrics\n  template:\n    metadata:\n      labels:\n        app.kubernetes.io/name: kube-state-metrics\n    spec:\n      serviceAccountName: kube-state-metrics\n      automountServiceAccountToken: true\n      containers:\n        - name: kube-state-metrics\n          # À VÉRIFIER : relevez la version disponible sur votre registre.\n          image: \"registry.k8s.io/kube-state-metrics/kube-state-metrics:{{KSM_VERSION}}\"\n          ports:\n            - name: http-metrics\n              containerPort: 8080\n            - name: telemetry\n              containerPort: 8081\n          resources:\n            requests:\n              cpu: 20m\n              memory: 64Mi\n            limits:\n              cpu: 200m\n              memory: 256Mi\n          securityContext:\n            allowPrivilegeEscalation: false\n            readOnlyRootFilesystem: true\n            runAsNonRoot: true\n            runAsUser: 65534\n            capabilities:\n              drop: [\"ALL\"]\n          livenessProbe:\n            httpGet:\n              path: /healthz\n              port: 8080\n            initialDelaySeconds: 5\n            timeoutSeconds: 5\n          readinessProbe:\n            httpGet:\n              path: /\n              port: 8081\n            initialDelaySeconds: 5\n            timeoutSeconds: 5\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: kube-state-metrics\n  namespace: kube-system\n  labels:\n    app.kubernetes.io/name: kube-state-metrics\nspec:\n  clusterIP: None        # service « headless » : l'agent découvre les pods\n  selector:\n    app.kubernetes.io/name: kube-state-metrics\n  ports:\n    - name: http-metrics\n      port: 8080\n      targetPort: http-metrics\n    - name: telemetry\n      port: 8081\n      targetPort: telemetry\n",
+   "lang": "yaml"
+  },
+  {
+   "name": "20-elastic-agent-daemonset.yaml",
+   "path": "collecte : un agent par nœud",
+   "content": "# ─────────────────────────────────────────────────────────────────────────────\n#  20-elastic-agent-daemonset.yaml — collecte Kubernetes ({{STUDENT_ID}})\n#\n#  POURQUOI UN DAEMONSET : les fichiers de log des conteneurs vivent sur le\n#  système de fichiers du NŒUD (/var/log/pods). Il faut donc un collecteur\n#  par nœud, qui monte /var/log. C'est exactement la définition d'un\n#  DaemonSet — un pod sur chaque nœud, y compris ceux ajoutés plus tard.\n#\n#  Cet agent est DISTINCT de celui installé sur l'hôte aux chapitres 1 et 2 :\n#  il s'enrôle dans la politique {{POLICY_K8S}}, pas dans {{POLICY}}.\n#\n#  AVANT D'APPLIQUER, créez le secret contenant le token (jamais en clair\n#  dans un manifeste, jamais dans Git) :\n#    kubectl create namespace elastic-agent\n#    kubectl -n elastic-agent create secret generic elastic-agent-creds \\\n#      --from-literal=enrollment-token='<votre-token-k8s>'\n#    kubectl -n elastic-agent create secret generic elastic-agent-ca \\\n#      --from-file=ca.crt={{CA_PATH}}\n#\n#  La référence reste le manifeste généré par VOTRE Kibana\n#  (Fleet -> Agents -> Add agent -> Kubernetes) : il correspond à la version\n#  de la stack. Ce fichier en est la version commentée.\n# ─────────────────────────────────────────────────────────────────────────────\napiVersion: v1\nkind: ServiceAccount\nmetadata:\n  name: elastic-agent\n  namespace: elastic-agent\n---\napiVersion: rbac.authorization.k8s.io/v1\nkind: ClusterRole\nmetadata:\n  name: elastic-agent\nrules:\n  # L'agent interroge l'API Kubernetes pour ENRICHIR chaque ligne de log\n  # avec le namespace, le pod, le conteneur, le nœud et les labels.\n  # Sans ces droits : des logs sans nom de pod, donc inexploitables.\n  - apiGroups: [\"\"]\n    resources: [nodes, namespaces, events, pods, services, configmaps,\n                serviceaccounts, persistentvolumes, persistentvolumeclaims]\n    verbs: [\"get\", \"watch\", \"list\"]\n  - apiGroups: [\"apps\"]\n    resources: [replicasets, deployments, daemonsets, statefulsets]\n    verbs: [\"get\", \"watch\", \"list\"]\n  - apiGroups: [\"batch\"]\n    resources: [jobs, cronjobs]\n    verbs: [\"get\", \"watch\", \"list\"]\n  - apiGroups: [\"\"]\n    resources: [nodes/stats, nodes/metrics, nodes/proxy]\n    verbs: [\"get\"]\n  - nonResourceURLs: [\"/metrics\"]\n    verbs: [\"get\"]\n  - apiGroups: [\"coordination.k8s.io\"]\n    resources: [leases]\n    verbs: [\"get\", \"create\", \"update\"]\n---\napiVersion: rbac.authorization.k8s.io/v1\nkind: ClusterRoleBinding\nmetadata:\n  name: elastic-agent\nroleRef:\n  apiGroup: rbac.authorization.k8s.io\n  kind: ClusterRole\n  name: elastic-agent\nsubjects:\n  - kind: ServiceAccount\n    name: elastic-agent\n    namespace: elastic-agent\n---\napiVersion: apps/v1\nkind: DaemonSet\nmetadata:\n  name: elastic-agent\n  namespace: elastic-agent\n  labels:\n    app.kubernetes.io/name: elastic-agent\nspec:\n  selector:\n    matchLabels:\n      app.kubernetes.io/name: elastic-agent\n  template:\n    metadata:\n      labels:\n        app.kubernetes.io/name: elastic-agent\n    spec:\n      serviceAccountName: elastic-agent\n      # hostNetwork : nécessaire pour joindre le kubelet du nœud.\n      hostNetwork: true\n      dnsPolicy: ClusterFirstWithHostNet\n      tolerations:\n        # Sur k3s mono-nœud, le nœud porte le control plane : sans cette\n        # tolérance, AUCUN agent ne serait ordonnancé et vous chercheriez\n        # longtemps pourquoi rien n'est collecté.\n        - key: node-role.kubernetes.io/control-plane\n          effect: NoSchedule\n          operator: Exists\n        - key: node-role.kubernetes.io/master\n          effect: NoSchedule\n          operator: Exists\n      containers:\n        - name: elastic-agent\n          image: \"docker.elastic.co/beats/elastic-agent:{{ES_VERSION}}\"\n          env:\n            - name: FLEET_ENROLL\n              value: \"1\"\n            - name: FLEET_URL\n              value: \"{{FLEET_URL}}\"\n            - name: FLEET_ENROLLMENT_TOKEN\n              valueFrom:\n                secretKeyRef:\n                  name: elastic-agent-creds\n                  key: enrollment-token\n            - name: FLEET_CA\n              value: /etc/efi-ca/ca.crt\n            - name: NODE_NAME\n              valueFrom:\n                fieldRef:\n                  fieldPath: spec.nodeName\n            - name: POD_NAME\n              valueFrom:\n                fieldRef:\n                  fieldPath: metadata.name\n          securityContext:\n            # L'agent lit /var/log et le cgroupfs du nœud : il lui faut root.\n            # En revanche il ne monte RIEN en écriture.\n            runAsUser: 0\n          resources:\n            # Un collecteur non borné peut provoquer l'éviction de pods\n            # applicatifs : l'outil d'observation devient alors la cause de\n            # l'incident. On le borne, toujours.\n            requests:\n              cpu: 100m\n              memory: 200Mi\n            limits:\n              cpu: 500m\n              memory: 600Mi\n          volumeMounts:\n            - name: varlog\n              mountPath: /var/log\n              readOnly: true\n            - name: varlibdockercontainers\n              mountPath: /var/lib/docker/containers\n              readOnly: true\n            - name: proc\n              mountPath: /hostfs/proc\n              readOnly: true\n            - name: cgroup\n              mountPath: /hostfs/sys/fs/cgroup\n              readOnly: true\n            - name: efi-ca\n              mountPath: /etc/efi-ca\n              readOnly: true\n      volumes:\n        - name: varlog\n          hostPath:\n            path: /var/log\n        - name: varlibdockercontainers\n          hostPath:\n            path: /var/lib/docker/containers\n        - name: proc\n          hostPath:\n            path: /proc\n        - name: cgroup\n          hostPath:\n            path: /sys/fs/cgroup\n        - name: efi-ca\n          secret:\n            secretName: elastic-agent-ca\n",
+   "lang": "yaml"
+  },
+  {
+   "name": "30-shopflow-demo.yaml",
+   "path": "application de démonstration dans {{NAMESPACE}}",
+   "content": "# ─────────────────────────────────────────────────────────────────────────────\n#  30-shopflow-demo.yaml — application de démonstration dans {{NAMESPACE}}\n#\n#  Aucune image à construire : une image de base et une boucle shell qui\n#  émet du JSON ECS sur la sortie standard. C'est exactement ce qu'on\n#  attend d'une application conteneurisée — écrire sur stdout et rien\n#  d'autre : le runtime capture, le DaemonSet collecte, l'application n'a\n#  RIEN à savoir de la plateforme d'observabilité.\n#\n#  kubectl apply -f 30-shopflow-demo.yaml\n#  kubectl -n {{NAMESPACE}} rollout status deploy/shopflow-worker\n# ─────────────────────────────────────────────────────────────────────────────\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: shopflow-worker-config\n  namespace: \"{{NAMESPACE}}\"\ndata:\n  LOG_LEVEL: \"INFO\"\n  WORKER_THREADS: \"4\"\n  # Taux d'erreur simulé : 1 traitement sur N échoue.\n  TAUX_ERREUR: \"25\"\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: shopflow-worker\n  namespace: \"{{NAMESPACE}}\"\n  labels:\n    # Les labels recommandés deviennent vos DIMENSIONS d'analyse dans\n    # Kibana : segmenter par application, composant et version sans\n    # travail supplémentaire. Des labels anarchiques produisent des\n    # dashboards impossibles à construire.\n    app.kubernetes.io/name: shopflow-worker\n    app.kubernetes.io/component: worker\n    app.kubernetes.io/part-of: shopflow\n    app.kubernetes.io/version: \"1.8.0\"\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app.kubernetes.io/name: shopflow-worker\n  template:\n    metadata:\n      labels:\n        app.kubernetes.io/name: shopflow-worker\n        app.kubernetes.io/component: worker\n        app.kubernetes.io/part-of: shopflow\n        app.kubernetes.io/version: \"1.8.0\"\n      annotations:\n        # Décodage JSON des logs de CE pod uniquement, sans toucher à la\n        # politique globale de l'agent.\n        # À VÉRIFIER : les annotations ne sont prises en compte que si les\n        # « hints » sont activés dans la configuration de l'agent.\n        co.elastic.logs/enabled: \"true\"\n        co.elastic.logs/json.keys_under_root: \"true\"\n        co.elastic.logs/json.add_error_key: \"true\"\n        co.elastic.logs/json.overwrite_keys: \"true\"\n    spec:\n      containers:\n        - name: worker\n          image: \"{{DEMO_IMAGE}}\"\n          command: [\"/bin/sh\", \"-c\"]\n          args:\n            - |\n              echo \"{\\\"@timestamp\\\":\\\"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\\\",\\\"log.level\\\":\\\"INFO\\\",\\\"service.name\\\":\\\"shopflow-worker\\\",\\\"service.environment\\\":\\\"{{STUDENT_ID}}\\\",\\\"message\\\":\\\"demarrage du worker\\\"}\"\n              while true; do\n                D=$(( (RANDOM % 250) + 30 ))\n                if [ $(( RANDOM % ${TAUX_ERREUR:-25} )) -eq 0 ]; then\n                  echo \"{\\\"@timestamp\\\":\\\"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\\\",\\\"log.level\\\":\\\"ERROR\\\",\\\"service.name\\\":\\\"shopflow-worker\\\",\\\"service.environment\\\":\\\"{{STUDENT_ID}}\\\",\\\"error.type\\\":\\\"java.sql.SQLTimeoutException\\\",\\\"message\\\":\\\"traitement en echec: timeout base de donnees\\\"}\" >&2\n                else\n                  echo \"{\\\"@timestamp\\\":\\\"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\\\",\\\"log.level\\\":\\\"INFO\\\",\\\"service.name\\\":\\\"shopflow-worker\\\",\\\"service.environment\\\":\\\"{{STUDENT_ID}}\\\",\\\"event.duration\\\":$(( D * 1000000 )),\\\"message\\\":\\\"commande traitee en ${D} ms\\\"}\"\n                fi\n                sleep 1\n              done\n          envFrom:\n            - configMapRef:\n                name: shopflow-worker-config\n          resources:\n            # Valeurs saines de départ. Les scénarios du chapitre les\n            # dégradent VOLONTAIREMENT, une à la fois.\n            requests:\n              cpu: 50m\n              memory: 64Mi\n            limits:\n              cpu: 200m\n              memory: 128Mi\n          readinessProbe:\n            exec:\n              command: [\"/bin/true\"]\n            initialDelaySeconds: 3\n            periodSeconds: 10\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: shopflow-worker\n  namespace: \"{{NAMESPACE}}\"\n  labels:\n    app.kubernetes.io/name: shopflow-worker\nspec:\n  selector:\n    app.kubernetes.io/name: shopflow-worker\n  ports:\n    - name: http\n      port: 8080\n      targetPort: 8080\n",
+   "lang": "yaml"
+  },
+  {
+   "name": "01-pending.yaml",
+   "path": "Panne 1 — Pod Pending",
+   "content": "# ─────────────────────────────────────────────────────────────────────────────\n#  PANNE 1 — Pod Pending ({{STUDENT_ID}})\n#\n#  Ici : un nodeSelector qui ne correspond à AUCUN nœud. Le pod existe,\n#  il est valide, mais aucun nœud ne peut l'accueillir.\n#\n#  Diagnostic attendu :\n#    kubectl -n {{NAMESPACE}} get pods            -> Pending\n#    kubectl -n {{NAMESPACE}} describe pod ...    -> FailedScheduling\n#    message : « didn't match Pod's node affinity/selector »\n#\n#  Deux variantes à essayer ensuite (même PHASE, message DIFFÉRENT — c'est\n#  le message de l'event qui donne la cause, pas la phase) :\n#    a) requests.memory: 64Gi  -> « exceeded quota » (le ResourceQuota\n#       du namespace refuse AVANT même l'ordonnancement)\n#    b) requests.memory à peine sous le quota mais au-dessus de\n#       l'allocatable du nœud -> « Insufficient memory »\n# ─────────────────────────────────────────────────────────────────────────────\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: panne-pending\n  namespace: \"{{NAMESPACE}}\"\n  labels:\n    app.kubernetes.io/name: panne-pending\n    efi.formation/scenario: \"01-pending\"\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app.kubernetes.io/name: panne-pending\n  template:\n    metadata:\n      labels:\n        app.kubernetes.io/name: panne-pending\n        efi.formation/scenario: \"01-pending\"\n    spec:\n      nodeSelector:\n        # Aucun nœud ne porte ce label : le pod restera Pending.\n        efi.formation/disque: ssd-inexistant\n      containers:\n        - name: worker\n          image: \"{{DEMO_IMAGE}}\"\n          command: [\"/bin/sh\", \"-c\", \"sleep 3600\"]\n          resources:\n            requests:\n              cpu: 50m\n              memory: 64Mi\n            limits:\n              cpu: 100m\n              memory: 128Mi\n",
+   "lang": "yaml"
+  },
+  {
+   "name": "02-crashloop-config.yaml",
+   "path": "Panne 2 — CrashLoopBackOff par configuration",
+   "content": "# ─────────────────────────────────────────────────────────────────────────────\n#  PANNE 2 — CrashLoopBackOff par erreur de CONFIGURATION ({{STUDENT_ID}})\n#\n#  Le conteneur démarre, constate qu'une variable obligatoire est absente,\n#  journalise l'erreur et sort en code 1. Kubernetes le relance, avec un\n#  délai croissant : c'est le « BackOff ».\n#\n#  Diagnostic attendu :\n#    kubectl -n {{NAMESPACE}} get pods                  -> CrashLoopBackOff\n#    kubectl -n {{NAMESPACE}} logs <pod> --previous     -> le message d'erreur\n#    kubectl -n {{NAMESPACE}} describe pod <pod>        -> Exit Code: 1, Reason: Error\n#\n#  Dans Kibana, l'historique survit à la disparition des pods, ce que\n#  --previous ne garantit pas : il ne remonte qu'UNE génération.\n#\n#  Correction : décommenter la variable DB_PASSWORD (en pratique, elle\n#  viendrait d'un Secret, jamais d'une valeur en clair).\n# ─────────────────────────────────────────────────────────────────────────────\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: panne-config\n  namespace: \"{{NAMESPACE}}\"\n  labels:\n    app.kubernetes.io/name: panne-config\n    efi.formation/scenario: \"02-crashloop-config\"\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app.kubernetes.io/name: panne-config\n  template:\n    metadata:\n      labels:\n        app.kubernetes.io/name: panne-config\n        efi.formation/scenario: \"02-crashloop-config\"\n    spec:\n      containers:\n        - name: worker\n          image: \"{{DEMO_IMAGE}}\"\n          command: [\"/bin/sh\", \"-c\"]\n          args:\n            - |\n              if [ -z \"${DB_PASSWORD}\" ]; then\n                echo \"{\\\"@timestamp\\\":\\\"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\\\",\\\"log.level\\\":\\\"ERROR\\\",\\\"service.name\\\":\\\"shopflow-worker\\\",\\\"message\\\":\\\"variable obligatoire absente: DB_PASSWORD\\\"}\" >&2\n                exit 1\n              fi\n              echo \"demarrage nominal\" ; sleep 3600\n          env:\n            # - name: DB_PASSWORD\n            #   valueFrom:\n            #     secretKeyRef:\n            #       name: shopflow-db\n            #       key: password\n            - name: LOG_LEVEL\n              value: \"INFO\"\n          resources:\n            requests:\n              cpu: 50m\n              memory: 64Mi\n            limits:\n              cpu: 100m\n              memory: 128Mi\n",
+   "lang": "yaml"
+  },
+  {
+   "name": "03-crashloop-probe.yaml",
+   "path": "Panne 3 — CrashLoopBackOff fabriqué par une sonde",
+   "content": "# ─────────────────────────────────────────────────────────────────────────────\n#  PANNE 3 — CrashLoopBackOff fabriqué par une SONDE ({{STUDENT_ID}})\n#\n#  L'application est SAINE : elle met simplement 40 secondes à démarrer.\n#  La liveness probe la déclare morte au bout de 2 secondes, Kubernetes la\n#  tue, elle redémarre, et le cycle se répète indéfiniment.\n#\n#  C'est la panne la plus instructive du chapitre : l'application n'a\n#  AUCUN problème, c'est la supervision qui la tue.\n#\n#  Comment la distinguer de la panne 2, sans connaître la cause :\n#    - panne 2 : Exit Code 1, et des LOGS d'erreur applicatifs ;\n#    - panne 3 : Exit Code 137 (SIGKILL), AUCUN log d'erreur, et un event\n#      « Liveness probe failed » avant le « Killing ».\n#\n#  Correction : une startupProbe (bloc commenté), qui laisse le temps du\n#  démarrage sans relâcher la surveillance ensuite.\n# ─────────────────────────────────────────────────────────────────────────────\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: panne-probe\n  namespace: \"{{NAMESPACE}}\"\n  labels:\n    app.kubernetes.io/name: panne-probe\n    efi.formation/scenario: \"03-crashloop-probe\"\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app.kubernetes.io/name: panne-probe\n  template:\n    metadata:\n      labels:\n        app.kubernetes.io/name: panne-probe\n        efi.formation/scenario: \"03-crashloop-probe\"\n    spec:\n      containers:\n        - name: worker\n          image: \"{{DEMO_IMAGE}}\"\n          command: [\"/bin/sh\", \"-c\"]\n          args:\n            - |\n              echo \"demarrage long en cours (40 s)...\"\n              sleep 40\n              touch /tmp/pret\n              echo \"application prete\"\n              while true; do sleep 10; done\n          livenessProbe:\n            exec:\n              command: [\"/bin/sh\", \"-c\", \"test -f /tmp/pret\"]\n            # VOLONTAIREMENT trop agressive : 2 s d'attente pour un\n            # démarrage de 40 s.\n            initialDelaySeconds: 2\n            periodSeconds: 5\n            failureThreshold: 1\n          # ─── CORRECTION : décommenter ce bloc ───\n          # startupProbe:\n          #   exec:\n          #     command: [\"/bin/sh\", \"-c\", \"test -f /tmp/pret\"]\n          #   periodSeconds: 5\n          #   failureThreshold: 12     # 60 s au total pour démarrer\n          resources:\n            requests:\n              cpu: 50m\n              memory: 64Mi\n            limits:\n              cpu: 100m\n              memory: 128Mi\n",
+   "lang": "yaml"
+  },
+  {
+   "name": "04-oomkilled.yaml",
+   "path": "Panne 4 — OOMKilled",
+   "content": "# ─────────────────────────────────────────────────────────────────────────────\n#  PANNE 4 — OOMKilled ({{STUDENT_ID}})\n#\n#  Le conteneur alloue de la mémoire jusqu'à dépasser sa limite. La mémoire\n#  n'est pas compressible : on ne peut pas « ralentir » un dépassement.\n#  Le noyau tue donc le conteneur IMMÉDIATEMENT, sans préavis, et sans\n#  aucune trace dans les logs applicatifs.\n#\n#  Le volume emptyDir en medium Memory est un tmpfs : tout ce qu'on y écrit\n#  compte dans la mémoire du conteneur. C'est une façon simple et fiable de\n#  reproduire la montée mémoire d'une application qui fuit.\n#\n#  Diagnostic attendu :\n#    kubectl -n {{NAMESPACE}} describe pod <pod>\n#      -> Last State: Terminated, Reason: OOMKilled, Exit Code: 137\n#    métrique décisive : kubernetes.container.status.last_terminated_reason\n#    courbe : working set qui monte puis est COUPÉ net (jamais de descente)\n#\n#  Correction : limite à 256Mi et ballast réduit — ou, dans la vraie vie,\n#  corriger la fuite (chapitre 2).\n# ─────────────────────────────────────────────────────────────────────────────\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: panne-oom\n  namespace: \"{{NAMESPACE}}\"\n  labels:\n    app.kubernetes.io/name: panne-oom\n    efi.formation/scenario: \"04-oomkilled\"\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app.kubernetes.io/name: panne-oom\n  template:\n    metadata:\n      labels:\n        app.kubernetes.io/name: panne-oom\n        efi.formation/scenario: \"04-oomkilled\"\n    spec:\n      containers:\n        - name: worker\n          image: \"{{DEMO_IMAGE}}\"\n          command: [\"/bin/sh\", \"-c\"]\n          args:\n            - |\n              echo \"allocation progressive de memoire (10 Mo toutes les 5 s)\"\n              i=0\n              while true; do\n                i=$(( i + 10 ))\n                dd if=/dev/zero of=/ballast/bloc bs=1M count=$i 2>/dev/null\n                echo \"{\\\"@timestamp\\\":\\\"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\\\",\\\"log.level\\\":\\\"WARN\\\",\\\"service.name\\\":\\\"shopflow-worker\\\",\\\"message\\\":\\\"memoire retenue: ${i} Mo\\\"}\"\n                sleep 5\n              done\n          volumeMounts:\n            - name: ballast\n              mountPath: /ballast\n          resources:\n            requests:\n              cpu: 50m\n              memory: 64Mi\n            limits:\n              # VOLONTAIREMENT basse : l'OOMKill survient en moins d'une minute.\n              cpu: 100m\n              memory: 64Mi\n      volumes:\n        - name: ballast\n          emptyDir:\n            # medium: Memory -> tmpfs : compté dans la mémoire du conteneur.\n            medium: Memory\n            sizeLimit: 512Mi\n",
+   "lang": "yaml"
+  },
+  {
+   "name": "05-imagepull.yaml",
+   "path": "Panne 5 — ImagePullBackOff",
+   "content": "# ─────────────────────────────────────────────────────────────────────────────\n#  PANNE 5 — ImagePullBackOff ({{STUDENT_ID}})\n#\n#  Le tag d'image n'existe pas. Le pod ne démarre jamais.\n#\n#  Diagnostic attendu :\n#    kubectl -n {{NAMESPACE}} get pods             -> ErrImagePull puis ImagePullBackOff\n#    kubectl -n {{NAMESPACE}} describe pod <pod>   -> « manifest unknown » ou\n#                                                     « not found »\n#\n#  Causes par ordre de fréquence : faute de frappe dans le nom ou le tag,\n#  tag supprimé du registre, registre privé sans imagePullSecrets, registre\n#  injoignable depuis les nœuds, architecture d'image incompatible.\n#\n#  C'est la panne la plus rapide à qualifier : moins de 30 secondes si l'on\n#  sait où regarder. Chronométrez-vous.\n# ─────────────────────────────────────────────────────────────────────────────\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: panne-image\n  namespace: \"{{NAMESPACE}}\"\n  labels:\n    app.kubernetes.io/name: panne-image\n    efi.formation/scenario: \"05-imagepull\"\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app.kubernetes.io/name: panne-image\n  template:\n    metadata:\n      labels:\n        app.kubernetes.io/name: panne-image\n        efi.formation/scenario: \"05-imagepull\"\n    spec:\n      containers:\n        - name: worker\n          # Tag volontairement inexistant.\n          image: \"busybox:version-inexistante-42\"\n          command: [\"/bin/sh\", \"-c\", \"sleep 3600\"]\n          resources:\n            requests:\n              cpu: 50m\n              memory: 64Mi\n            limits:\n              cpu: 100m\n              memory: 128Mi\n",
+   "lang": "yaml"
+  },
+  {
+   "name": "06-throttling.yaml",
+   "path": "Panne 6 — Throttling CPU (la dégradation silencieuse)",
+   "content": "# ─────────────────────────────────────────────────────────────────────────────\n#  PANNE 6 — Throttling CPU ({{STUDENT_ID}})\n#\n#  LA PANNE LA PLUS DIFFICILE À DIAGNOSTIQUER, parce qu'elle ne produit\n#  AUCUNE erreur : le conteneur fonctionne, ne redémarre pas, ne journalise\n#  rien d'anormal. Il est simplement RALENTI par le noyau, qui l'empêche de\n#  dépasser sa limite CPU.\n#\n#  Le seul symptôme côté application est une latence dégradée — souvent\n#  attribuée à tort à la base de données ou au réseau.\n#\n#  Diagnostic attendu :\n#    AUCUN redémarrage, AUCUNE erreur, pod Ready\n#    métrique décisive : kubernetes.container.cpu.usage.limit.pct en\n#    PLATEAU juste sous 1 pendant toute la charge\n#    la durée annoncée par le conteneur (champ event.duration) augmente\n#\n#  Correction : passer limits.cpu à 1 et comparer les durées. Attention :\n#  si requests reste bas, le pod peut être placé sur un nœud déjà chargé et\n#  subir la contention même avec une limite élevée.\n# ─────────────────────────────────────────────────────────────────────────────\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: panne-throttling\n  namespace: \"{{NAMESPACE}}\"\n  labels:\n    app.kubernetes.io/name: panne-throttling\n    efi.formation/scenario: \"06-throttling\"\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app.kubernetes.io/name: panne-throttling\n  template:\n    metadata:\n      labels:\n        app.kubernetes.io/name: panne-throttling\n        efi.formation/scenario: \"06-throttling\"\n    spec:\n      containers:\n        - name: worker\n          image: \"{{DEMO_IMAGE}}\"\n          command: [\"/bin/sh\", \"-c\"]\n          args:\n            - |\n              echo \"calcul en boucle : mesure du temps d'un lot de travail\"\n              while true; do\n                DEBUT=$(date +%s%N)\n                i=0\n                while [ $i -lt 20000 ]; do i=$(( i + 1 )); done\n                FIN=$(date +%s%N)\n                MS=$(( (FIN - DEBUT) / 1000000 ))\n                echo \"{\\\"@timestamp\\\":\\\"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\\\",\\\"log.level\\\":\\\"INFO\\\",\\\"service.name\\\":\\\"shopflow-worker\\\",\\\"event.duration\\\":$(( MS * 1000000 )),\\\"message\\\":\\\"lot traite en ${MS} ms\\\"}\"\n                sleep 1\n              done\n          resources:\n            requests:\n              cpu: 20m\n              memory: 64Mi\n            limits:\n              # VOLONTAIREMENT basse : 50 millicœurs, soit 5 % d'un cœur.\n              cpu: 50m\n              memory: 128Mi\n",
+   "lang": "yaml"
+  },
+  {
+   "name": "01-redemarrages.json",
+   "path": "Règle d'alerte — niveau 2",
+   "content": "{\n  \"_nom\": \"pods-redemarrages-{{STUDENT_ID}}\",\n  \"_niveau\": \"2 — symptôme proche de l'impact\",\n  \"_fenetre\": \"15 minutes\",\n  \"_intervalle\": \"3 minutes\",\n  \"_seuil\": \"plus de 3 redémarrages d'un même conteneur sur la fenêtre\",\n  \"_pourquoi_max_moins_min\": \"kubernetes.container.status.restarts est un COMPTEUR CUMULÉ depuis la création du pod. Un pod qui a redémarré 40 fois la semaine dernière et plus du tout depuis ne doit pas alerter. On compare donc le maximum et le minimum sur la fenêtre : la différence est le nombre de NOUVEAUX redémarrages.\",\n  \"_regroupement\": \"par kubernetes.pod.name — sinon une seule alerte globale ne dit pas quel pod est touché\",\n  \"esql\": \"FROM metrics-kubernetes.state_container-{{NAMESPACE}} | WHERE @timestamp > NOW() - 15 minutes | WHERE kubernetes.namespace == \\\"{{NAMESPACE}}\\\" | STATS mx = MAX(kubernetes.container.status.restarts), mn = MIN(kubernetes.container.status.restarts) BY kubernetes.pod.name | EVAL nouveaux = mx - mn | WHERE nouveaux > 3 | KEEP kubernetes.pod.name, nouveaux, mx | SORT nouveaux DESC\",\n  \"_action\": \"Diagnostiquer avec le tableau de diagnostic : si last_terminated_reason vaut OOMKilled, c'est la mémoire ; si Error, ce sont les logs applicatifs ; si la sonde apparaît dans les events, c'est la supervision qui tue l'application.\"\n}\n",
+   "lang": "json"
+  },
+  {
+   "name": "02-pods-non-prets.json",
+   "path": "Règle d'alerte — niveau 1",
+   "content": "{\n  \"_nom\": \"pods-non-prets-{{STUDENT_ID}}\",\n  \"_niveau\": \"1 — impact utilisateur\",\n  \"_fenetre\": \"10 minutes\",\n  \"_intervalle\": \"2 minutes\",\n  \"_seuil\": \"au moins un pod en phase running mais NON prêt, de façon durable\",\n  \"_pourquoi_c_est_la_regle_la_plus_oubliee\": \"Running n'est PAS Ready. Un pod peut être running tout en échouant sa readiness probe : il ne reçoit alors aucun trafic du Service, mais un décompte naïf affiche « 2/2 pods en marche ». Un dashboard qui compte les pods running sans regarder ready peut annoncer que tout va bien pendant que le service est totalement indisponible.\",\n  \"esql\": \"FROM metrics-kubernetes.state_pod-{{NAMESPACE}} | WHERE @timestamp > NOW() - 10 minutes | WHERE kubernetes.namespace == \\\"{{NAMESPACE}}\\\" | WHERE kubernetes.pod.status.phase == \\\"running\\\" AND kubernetes.pod.status.ready == false | STATS mesures = COUNT(*) BY kubernetes.pod.name | WHERE mesures >= 5 | KEEP kubernetes.pod.name, mesures | SORT mesures DESC\",\n  \"_garde_fou\": \"mesures >= 5 : un pod non prêt pendant trente secondes au démarrage est normal. On exige donc plusieurs points de mesure consécutifs avant d'alerter.\",\n  \"_a_verifier\": \"Les valeurs de kubernetes.pod.status.phase peuvent être en minuscules ou en capitales selon la version de l'intégration. Relevez la valeur réelle dans Discover avant de créer la règle : une comparaison qui ne correspond à rien ne déclenche jamais, et c'est silencieux.\"\n}\n",
+   "lang": "json"
+  },
+  {
+   "name": "03-oomkilled.json",
+   "path": "Règle d'alerte — niveau 2",
+   "content": "{\n  \"_nom\": \"oomkilled-{{STUDENT_ID}}\",\n  \"_niveau\": \"2 — symptôme\",\n  \"_fenetre\": \"15 minutes\",\n  \"_intervalle\": \"3 minutes\",\n  \"_condition\": \"au moins une occurrence\",\n  \"_pourquoi_cette_regle_est_indispensable\": \"Un OOMKilled ne laisse AUCUNE trace dans les logs applicatifs : le noyau tue le processus immédiatement, sans lui laisser le temps d'écrire quoi que ce soit. La seule source d'information est l'état déclaré par kube-state-metrics, dans le champ last_terminated_reason. Sans kube-state-metrics, cette panne est invisible.\",\n  \"esql\": \"FROM metrics-kubernetes.state_container-{{NAMESPACE}} | WHERE @timestamp > NOW() - 15 minutes | WHERE kubernetes.namespace == \\\"{{NAMESPACE}}\\\" | WHERE kubernetes.container.status.last_terminated_reason == \\\"OOMKilled\\\" | STATS occurrences = COUNT(*) BY kubernetes.pod.name | WHERE occurrences > 0 | KEEP kubernetes.pod.name, occurrences\",\n  \"_diagnostic_ensuite\": {\n    \"limite trop basse ?\": \"comparer le working set en régime normal à la limite déclarée : si l'écart est faible, augmenter la limite\",\n    \"fuite ?\": \"observer la pente sur plusieurs heures : une croissance indéfinie désigne le code, pas la limite\",\n    \"JVM mal configurée ?\": \"comparer -Xmx à limits.memory : un écart insuffisant garantit l'OOMKill, car -Xmx ne borne que la heap\",\n    \"pic ponctuel ?\": \"corréler avec le trafic : chercher la requête coûteuse\"\n  }\n}\n",
+   "lang": "json"
+  },
+  {
+   "name": "04-node-sous-pression.json",
+   "path": "Règle d'alerte — niveau 3 (+ variante throttling)",
+   "content": "{\n  \"_nom\": \"node-sous-pression-{{STUDENT_ID}}\",\n  \"_niveau\": \"3 — saturation de ressource\",\n  \"_fenetre\": \"10 minutes\",\n  \"_intervalle\": \"5 minutes\",\n  \"_condition\": \"un nœud non prêt, ou sous pression mémoire ou disque\",\n  \"_consequence_si_ignoree\": \"MemoryPressure et DiskPressure provoquent l'ÉVICTION des pods, en commençant par les BestEffort (ceux qui n'ont ni requests ni limits). DiskPressure fait en plus échouer les téléchargements d'images : vos déploiements se mettent à échouer sans raison apparente.\",\n  \"esql\": \"FROM metrics-kubernetes.state_node-{{NAMESPACE}} | WHERE @timestamp > NOW() - 10 minutes | WHERE kubernetes.node.status.ready == false OR kubernetes.node.status.memory_pressure == true OR kubernetes.node.status.disk_pressure == true | STATS mesures = COUNT(*) BY kubernetes.node.name | WHERE mesures >= 2 | KEEP kubernetes.node.name, mesures\",\n  \"_variante_throttling\": {\n    \"_nom\": \"throttling-cpu-{{STUDENT_ID}}\",\n    \"_niveau\": \"3 — la dégradation SILENCIEUSE\",\n    \"_pourquoi\": \"Aucune erreur, aucun redémarrage, pod Ready : seule la latence se dégrade. C'est le diagnostic le plus souvent manqué, et la seule façon de le détecter automatiquement est cette règle.\",\n    \"esql\": \"FROM metrics-kubernetes.container-{{NAMESPACE}} | WHERE @timestamp > NOW() - 15 minutes | WHERE kubernetes.namespace == \\\"{{NAMESPACE}}\\\" | STATS pct = AVG(kubernetes.container.cpu.usage.limit.pct) BY kubernetes.pod.name | WHERE pct > 0.95 | EVAL pct = ROUND(pct * 100, 1) | KEEP kubernetes.pod.name, pct\",\n    \"_a_verifier\": \"Le champ kubernetes.container.cpu.usage.limit.pct n'existe pas sous un nom stable dans toutes les versions de l'intégration. Si vous ne le trouvez pas dans Discover, repli : comparer cpu.usage.nanocores à cpu.limit.cores (voir les formules du chapitre).\"\n  }\n}\n",
+   "lang": "json"
+  }
+ ]
+};
+
+/* ---------- utilitaires ---------- */
+const $  = (s, r) => (r || document).querySelector(s);
+const el = (t, a, txt) => { const n = document.createElement(t);
+  if (a) for (const k in a) n.setAttribute(k, a[k]);
+  if (txt != null) n.textContent = txt; return n; };
+const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+/* ---------- substitution des placeholders ---------- */
+/* Une valeur saisie peut contenir des guillemets (par exemple une clause
+   ES|QL). Injectée telle quelle dans un fichier JSON, elle casserait le
+   document : on échappe donc selon le format du fichier cible. */
+function echappeJson(v) {
+  return String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"')
+    .replace(/\n/g, "\\n").replace(/\r/g, "\\r").replace(/\t/g, "\\t");
+}
+function substitue(texte, vals, format) {
+  return String(texte).replace(/\{\{([A-Z0-9_]+)\}\}/g, (m, k) => {
+    if (!Object.prototype.hasOwnProperty.call(vals, k)) return m;
+    return format === "json" ? echappeJson(vals[k]) : vals[k];
+  });
+}
+/* Les valeurs dérivées peuvent dépendre les unes des autres : on résout par passes. */
+function resout(vals, derived) {
+  const out = Object.assign({}, vals);
+  for (let passe = 0; passe < 6; passe++) {
+    let change = false;
+    for (const k in derived) {
+      const v = substitue(derived[k], out);
+      if (out[k] !== v) { out[k] = v; change = true; }
+    }
+    if (!change) break;
+  }
+  return out;
+}
+
+/* ---------- coloration simple ---------- */
+const COMMENT = { bash:/^\s*#/, yaml:/^\s*#/, properties:/^\s*[#!]/, apache:/^\s*#/,
+                  sql:/^\s*(#|\/\/|--)/, java:/^\s*(\/\/|\*|\/\*)/, xml:null, json:null, text:null };
+const MOTS = {
+  bash:/\b(if|then|else|elif|fi|for|while|do|done|case|esac|in|function|return|local|export|set|echo|exit|sudo|curl|systemctl|kubectl|cd|sleep|source)\b/g,
+  yaml:/^(\s*(?:-\s+)?)([A-Za-z0-9_.\/-]+)(:)/gm,
+  apache:/^(\s*)(&lt;\/?[A-Za-z]+|[A-Z][A-Za-z]+)\b/gm,
+  sql:/\b(FROM|WHERE|EVAL|STATS|KEEP|SORT|LIMIT|BY|AND|OR|NOT|CASE|COUNT|SUM|ROUND|NOW|IS|NULL|LIKE|IN|DATE_TRUNC|PERCENTILE|DROP|RENAME)\b/g,
+  java:/\b(public|private|static|final|class|void|new|return|if|else|for|while|try|catch|throw|throws|import|package|int|long|String|boolean)\b/g
+};
+function colorise(code, lang) {
+  const cl = COMMENT[lang];
+  const lignes = esc(code).split("\n").map(l => {
+    if (cl && cl.test(l)) return '<span class="tc">' + l + "</span>";
+    let o = l;
+    o = o.replace(/("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/g, '<span class="ts">$1</span>');
+    if (lang === "json")  o = o.replace(/\b(true|false|null)\b/g, '<span class="tk">$1</span>');
+    if (lang === "xml")   o = o.replace(/(&lt;\/?[A-Za-z!?][\w:.-]*)/g, '<span class="tg">$1</span>');
+    if (lang === "yaml")  o = o.replace(MOTS.yaml, '$1<span class="tg">$2</span>$3');
+    if (lang === "apache")o = o.replace(MOTS.apache, '$1<span class="tg">$2</span>');
+    if (MOTS[lang] && lang !== "yaml" && lang !== "apache") o = o.replace(MOTS[lang], '<span class="tk">$1</span>');
+    o = o.replace(/(^|[\s:=(,[])(\d+(?:\.\d+)?)\b/g, '$1<span class="tn">$2</span>');
+    return o;
+  });
+  return lignes.join("\n");
+}
+
+/* ---------- copier / télécharger ---------- */
+function copier(texte, btn) {
+  const fini = ok => { const av = btn.textContent;
+    btn.textContent = ok ? "Copié ✓" : "Échec"; setTimeout(() => { btn.textContent = av; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(texte).then(() => fini(true), () => fini(secours(texte)));
+  } else { fini(secours(texte)); }
+}
+function secours(texte) {                       /* presse-papier indisponible (iframe, http) */
+  const ta = el("textarea"); ta.value = texte;
+  ta.setAttribute("style", "position:fixed;top:-1000px;left:0;opacity:0");
+  document.body.appendChild(ta); ta.select();
+  let ok = false; try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+  document.body.removeChild(ta); return ok;
+}
+function telecharger(nom, texte, btn) {
+  try {
+    const b = new Blob([texte], { type: "text/plain;charset=utf-8" });
+    const u = URL.createObjectURL(b);
+    const a = el("a", { href: u, download: nom });
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(u), 4000);
+  } catch (e) {
+    btn.textContent = "Bloqué — utilisez Copier";
+    setTimeout(() => { btn.textContent = "Télécharger"; }, 2600);
+  }
+}
+
+/* ---------- construction du formulaire ---------- */
+function champs() {
+  const hote = $("#t-fields");
+  PAYLOAD.fields.forEach(f => {
+    const box = el("div");
+    const lab = el("label", { for: "f-" + f.key }, f.label);
+    if (f.required) lab.appendChild(el("span", { class: "req" }, " *"));
+    box.appendChild(lab);
+    let inp;
+    if (f.type === "select") {
+      inp = el("select", { id: "f-" + f.key });
+      (f.options || []).forEach(o => inp.appendChild(el("option", { value: o }, o)));
+      if (f.default) inp.value = f.default;
+    } else {
+      inp = el("input", { id: "f-" + f.key, type: f.type === "password" ? "password" : "text",
+        value: f.default || "", placeholder: f.placeholder || "", autocomplete: "off",
+        spellcheck: "false" });
+    }
+    inp.dataset.key = f.key;
+    box.appendChild(inp);
+    if (f.help) box.appendChild(el("p", { class: "help" }, f.help));
+    box.appendChild(el("p", { class: "err", id: "e-" + f.key }));
+    hote.appendChild(box);
+  });
+}
+function constantes() {
+  const tb = $("#t-cst");
+  PAYLOAD.constants.forEach(c => {
+    const tr = el("tr");
+    tr.appendChild(el("th", null, c.label));
+    const td = el("td"); td.appendChild(el("code", null, c.value));
+    if (c.note) { td.appendChild(document.createElement("br"));
+      td.appendChild(el("span", { class: "help" }, c.note)); }
+    tr.appendChild(td); tb.appendChild(tr);
+  });
+}
+
+/* ---------- validation ---------- */
+function valide() {
+  let ok = true; const vals = {};
+  PAYLOAD.fields.forEach(f => {
+    const inp = $("#f-" + f.key), zone = $("#e-" + f.key);
+    const v = (inp.value || "").trim();
+    let msg = "";
+    if (f.required && !v) msg = "Champ obligatoire.";
+    else if (v && f.pattern && !new RegExp(f.pattern).test(v)) msg = f.error || "Format invalide.";
+    zone.textContent = msg;
+    inp.setAttribute("aria-invalid", msg ? "true" : "false");
+    if (msg) ok = false;
+    vals[f.key] = v;
+  });
+  return ok ? vals : null;
+}
+
+/* ---------- rendu ---------- */
+function bloc(titre, chemin, contenu, lang) {
+  const b = el("div", { class: "blk" });
+  const h = el("header");
+  const g = el("div");
+  g.appendChild(el("h3", null, titre));
+  if (chemin) g.appendChild(el("div", { class: "path" }, chemin));
+  h.appendChild(g);
+  const btns = el("div", { class: "btns" });
+  const bc = el("button", { type: "button", class: "sm" }, "Copier");
+  bc.addEventListener("click", () => copier(contenu, bc));
+  const bt = el("button", { type: "button", class: "sm" }, "Télécharger");
+  bt.addEventListener("click", () => telecharger(titre, contenu, bt));
+  btns.appendChild(bc); btns.appendChild(bt);
+  h.appendChild(btns); b.appendChild(h);
+  const pre = el("pre"); pre.innerHTML = colorise(contenu, lang || "text");
+  b.appendChild(pre); return b;
+}
+function genere() {
+  const brut = valide();
+  const msg = $("#t-msg");
+  if (!brut) { msg.className = "msg bad";
+    msg.textContent = "Corrigez les champs signalés avant de générer."; return; }
+  const vals = resout(Object.assign({}, PAYLOAD.fixed, brut), PAYLOAD.derived);
+
+  const recap = $("#t-recap"); recap.textContent = "";
+  recap.appendChild(el("strong", null, "Valeurs appliquées"));
+  const ul = el("div", { class: "rec" });
+  (PAYLOAD.recap || []).forEach(k => {
+    if (vals[k] != null && vals[k] !== "") ul.appendChild(el("div", null, k + " = " + vals[k]));
+  });
+  recap.appendChild(ul);
+
+  const zone = $("#t-blocks"); zone.textContent = "";
+  (PAYLOAD.commands || []).forEach(c =>
+    zone.appendChild(bloc(c.name, c.title || "",
+      substitue(c.content, vals, c.lang), c.lang)));
+  (PAYLOAD.files || []).forEach(f =>
+    zone.appendChild(bloc(f.name, substitue(f.path || "", vals),
+      substitue(f.content, vals, f.lang), f.lang)));
+
+  $("#t-out").classList.remove("hidden");
+  msg.className = "msg ok";
+  msg.textContent = (PAYLOAD.files || []).length + " fichier(s) et " +
+                    (PAYLOAD.commands || []).length + " bloc(s) de commandes générés.";
+  /* scrollIntoView n'existe pas dans tous les contextes d'intégration
+     (certaines iframes restreintes) : on ne tombe pas pour autant. */
+  const sortie = $("#t-out");
+  if (typeof sortie.scrollIntoView === "function") {
+    sortie.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
+/* ---------- démarrage ---------- */
+$("#t-titre").textContent = PAYLOAD.chapitre;
+document.title = PAYLOAD.chapitre;
+$("#t-intro").textContent = PAYLOAD.intro || "";
+constantes(); champs();
+$("#t-gen").addEventListener("click", genere);
+$("#t-reset").addEventListener("click", () => {
+  $("#t-form").reset();
+  PAYLOAD.fields.forEach(f => { $("#e-" + f.key).textContent = "";
+    $("#f-" + f.key).setAttribute("aria-invalid", "false"); });
+  $("#t-out").classList.add("hidden"); $("#t-msg").textContent = "";
+});
+$("#t-form").addEventListener("submit", e => { e.preventDefault(); genere(); });
+$("#t-form").addEventListener("keydown", e => {
+  if (e.key === "Enter" && e.target.tagName !== "TEXTAREA") { e.preventDefault(); genere(); }
+});
+</script>
+</body>
+</html>
