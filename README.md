@@ -97,6 +97,7 @@ tp-elk/                           (racine de ce dépôt)
     ├── build-generateurs.py       construit les generateur.html
     ├── render-exemple.py          rend les fichiers avec des valeurs concretes
     ├── mermaid-to-svg.cjs         pre-rend les diagrammes Mermaid en SVG
+    ├── verifier-acces-kibana.sh   ADMIN : diagnostique l'acces a Kibana
     └── ajouter-custom-logs.py     ADMIN : replique l'integration Custom Logs
                                    sur les 20 politiques efi-studentNN-apache
 
@@ -262,8 +263,13 @@ interne, et un accès HTTPS à **Kibana** (port 5601 — pas Elasticsearch).
 Test d'accès avant toute chose :
 
 ```bash
-curl -sI --cacert /etc/efi/pki/ca.crt https://172.16.3.53:5601/api/status | head -1
+./tools/verifier-acces-kibana.sh https://172.16.3.53:5601 /etc/efi/pki/ca.crt
 ```
+
+Le script déroule les causes dans l'ordre — fichier de CA, port, TLS, validation du
+certificat — et conclut. Il existe parce que `curl -s` **masque ses erreurs** : une
+commande qui ne renvoie rien peut aussi bien signifier « CA introuvable » que « port
+fermé », et on ne peut pas le deviner.
 
 Si le port direct n'est pas routé depuis votre poste, passez par le reverse proxy en
 incluant le chemin de base : `--kibana https://elk.efi-academy.com/tp`.
