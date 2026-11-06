@@ -351,7 +351,36 @@ journal JSON :
 curl -s --cacert /etc/efi/pki/ca.crt -H "Authorization: ApiKey $ES_API_KEY" "https://172.16.3.50:9200/logs-shopflow_apache.access_json-student01/_count?pretty"
 ```
 
-## 6. Ce que le formateur doit préparer
+## 6. Distribuer les jetons d'enrôlement aux 20 candidats
+
+**Fleet crée déjà un jeton par politique**, au moment où la politique est créée : il n'y a
+en général rien à générer, seulement à récupérer et à distribuer.
+`tools/generer-jetons.py` produit, par candidat, une fiche contenant ses jetons et ses
+commandes d'installation prêtes à copier.
+
+```bash
+export KIBANA_API_KEY='<valeur encoded>'
+python3 tools/generer-jetons.py --cacert ~/efi-elk-platform/pki/ca.crt --ca-vm /etc/efi/pki/ca.crt --version-agent 9.5.6
+```
+
+```bash
+python3 tools/generer-jetons.py --cacert ~/efi-elk-platform/pki/ca.crt --ca-vm /etc/efi/pki/ca.crt --version-agent 9.5.6 --sortie ./jetons --ecrire
+```
+
+| Point | Comportement |
+|---|---|
+| Lecture seule par défaut | Rien n'est créé ; `--creer-si-absent` ne crée que pour une politique qui n'a aucun jeton |
+| Fiches en droits **600** | Ce sont des secrets : un fichier par candidat, à transmettre **individuellement** |
+| Commandes complètes | URL de Fleet, jeton, `--certificate-authorities`, étiquettes `studentNN` et `tp-<rôle>` |
+| Cas Kubernetes | Pas de ligne de commande : le jeton passe par un `Secret`, comme au chapitre 3 |
+| `--masquer` | Affiche tout sauf les jetons, pour vérifier la couverture sans exposer de secret |
+| Après distribution | `shred -u jetons/*.txt` |
+
+> **Attention** — `--ca-vm` est le chemin de la CA **sur la VM du candidat**, qui n'est pas
+> celui du poste d'administration. C'est lui qui figure dans la commande d'installation, et
+> une valeur fausse donne `x509: certificate signed by unknown authority` à l'enrôlement.
+
+## 7. Ce que le formateur doit préparer
 
 | Élément | Détail |
 |---|---|
@@ -369,7 +398,7 @@ curl -s --cacert /etc/efi/pki/ca.crt -H "Authorization: ApiKey $ES_API_KEY" "htt
 | Licence | Niveau relevé et communiqué : il conditionne les SLO natifs et plusieurs connecteurs d'alerte |
 | Rétention ILM | Vérifiée : les SLO du projet portent sur 7 jours |
 
-## 7. Points marqués à vérifier
+## 8. Points marqués à vérifier
 
 Le support signale par un commentaire `<!-- À VÉRIFIER -->` chaque point qui dépend de la version ou de la licence réellement installées, plutôt que d'affirmer une valeur. Les principaux :
 
