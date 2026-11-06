@@ -1,6 +1,6 @@
 {
   "_requete": "PUT _ingest/pipeline/logs-shopflow_tomcat.access@custom",
-  "description": "ShopFlow {{STUDENT_ID}} — journal d'accès Tomcat : %D est en MILLISECONDES",
+  "description": "ShopFlow — journal d'accès Tomcat : %D est en MILLISECONDES. Pipeline PARTAGÉ par tous les candidats.",
   "_le_piege": "Apache httpd écrit %D en microsecondes, Tomcat en millisecondes. Le facteur de conversion vers event.duration (nanosecondes) est donc 1 000 000 ici, contre 1 000 au chapitre 1. Recopier le pipeline du chapitre 1 sans l'adapter donne des latences mille fois trop faibles — et des dashboards qui disent que tout va bien.",
   "processors": [
     {
@@ -50,7 +50,7 @@
     },
     { "set": { "field": "url.path", "value": "{{{url.original}}}", "override": false } },
     { "set": { "field": "service.name", "value": "shopflow-api", "override": false } },
-    { "set": { "field": "service.environment", "value": "{{STUDENT_ID}}", "override": false } },
+    { "set": { "field": "service.environment", "value": "{{{data_stream.namespace}}}", "override": false } },
     { "set": { "field": "event.module", "value": "tomcat", "override": false } },
     {
       "set": {

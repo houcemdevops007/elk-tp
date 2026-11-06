@@ -1,66 +1,172 @@
 {
   "chapitre": "Générateur — Chapitre 2 : Tomcat, JVM et pannes mémoire",
   "intro": "Renseignez les paramètres de votre Tomcat : la page produit les configurations du chapitre, l'application de démonstration et les scripts de scénario, avec vos valeurs. Les modèles sont exactement ceux du dossier 02-tomcat/ du tutoriel.",
-  "constants": ["version", "cluster", "es", "kibana", "fleet"],
+  "constants": [
+    "version",
+    "cluster",
+    "es",
+    "kibana",
+    "fleet"
+  ],
   "fields": [
-    { "key": "NUM", "label": "Numéro étudiant", "type": "select", "required": true,
-      "options": ["01","02","03","04","05","06","07","08","09","10",
-                  "11","12","13","14","15","16","17","18","19","20"],
+    {
+      "key": "NUM",
+      "label": "Numéro étudiant",
+      "type": "select",
+      "required": true,
+      "options": [
+        "01",
+        "02",
+        "03",
+        "04",
+        "05",
+        "06",
+        "07",
+        "08",
+        "09",
+        "10",
+        "11",
+        "12",
+        "13",
+        "14",
+        "15",
+        "16",
+        "17",
+        "18",
+        "19",
+        "20"
+      ],
       "default": "01",
-      "help": "Détermine votre identifiant, votre namespace et votre politique d'agent." },
-    { "key": "STUDENT_HOST", "label": "Nom d'hôte de la VM", "type": "text", "required": true,
+      "help": "Détermine votre identifiant, votre namespace et votre politique d'agent."
+    },
+    {
+      "key": "STUDENT_HOST",
+      "label": "Nom d'hôte de la VM",
+      "type": "text",
+      "required": true,
       "placeholder": "ex. vm-student07",
       "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$",
       "error": "Nom d'hôte invalide : minuscules, chiffres et tirets uniquement.",
-      "help": "La même valeur qu'au chapitre 1 : c'est le host.name de vos documents." },
-    { "key": "CATALINA_HOME", "label": "CATALINA_HOME", "type": "text", "required": true,
+      "help": "La même valeur qu'au chapitre 1 : c'est le host.name de vos documents."
+    },
+    {
+      "key": "CATALINA_HOME",
+      "label": "CATALINA_HOME",
+      "type": "text",
+      "required": true,
       "default": "/opt/tomcat",
       "pattern": "^/[^\\s]*[^/\\s]$",
       "error": "Chemin absolu attendu, sans barre oblique finale.",
-      "help": "Racine de Tomcat. Paquet Debian : /usr/share/tomcat9 ou /usr/share/tomcat10. Archive décompressée : /opt/tomcat." },
-    { "key": "CATALINA_LOGS", "label": "Répertoire des journaux Tomcat", "type": "text",
-      "required": true, "default": "/opt/tomcat/logs",
+      "help": "Racine de Tomcat. Paquet Debian : /usr/share/tomcat9 ou /usr/share/tomcat10. Archive décompressée : /opt/tomcat."
+    },
+    {
+      "key": "CATALINA_LOGS",
+      "label": "Répertoire des journaux Tomcat",
+      "type": "text",
+      "required": true,
+      "default": "/opt/tomcat/logs",
       "pattern": "^/[^\\s]*[^/\\s]$",
       "error": "Chemin absolu attendu.",
-      "help": "Souvent CATALINA_HOME/logs, mais /var/log/tomcat9 avec les paquets Debian. Vérifiez : ls -l là où catalina.out existe réellement." },
-    { "key": "TOMCAT_USER", "label": "Compte système de Tomcat", "type": "text",
-      "required": true, "default": "tomcat",
-      "pattern": "^[a-z_][a-z0-9_-]*$", "error": "Nom de compte invalide.",
-      "help": "Le compte qui exécute la JVM : nécessaire pour jcmd et jstat (sudo -u)." },
-    { "key": "TOMCAT_PORT", "label": "Port du connecteur HTTP", "type": "text",
-      "required": true, "default": "8080",
-      "pattern": "^[0-9]{2,5}$", "error": "Numéro de port invalide.",
-      "help": "Détermine aussi le nom du pool de threads dans JMX : http-nio-<port>." },
-    { "key": "APP_CONTEXT", "label": "Contexte de l'application", "type": "text",
-      "required": true, "default": "shopflow-api",
-      "pattern": "^[a-zA-Z0-9_-]+$", "error": "Caractères alphanumériques, tiret et souligné.",
-      "help": "Nom du WAR, donc chemin du contexte : /shopflow-api/api/cart." },
-    { "key": "HEAP_MB", "label": "Taille de la heap en Mo (-Xms = -Xmx)", "type": "text",
-      "required": true, "default": "512",
-      "pattern": "^[0-9]{3,5}$", "error": "Valeur en mégaoctets attendue.",
-      "help": "Volontairement petite en TP : la fuite mémoire devient observable en quelques minutes. Vérifiez que la VM a au moins 2 Go de RAM." },
-    { "key": "JMX_PORT", "label": "Port JMX local", "type": "text", "required": true,
-      "default": "9010", "pattern": "^[0-9]{2,5}$", "error": "Numéro de port invalide.",
-      "help": "Restreint à 127.0.0.1. JMX sans authentification exposé publiquement est une vulnérabilité d'exécution de code à distance." },
-    { "key": "JOLOKIA_PORT", "label": "Port de l'agent Jolokia", "type": "text",
-      "required": true, "default": "8778",
-      "pattern": "^[0-9]{2,5}$", "error": "Numéro de port invalide.",
-      "help": "Jolokia expose les MBeans en HTTP/JSON pour l'intégration Elastic, sur la boucle locale." },
-    { "key": "JOLOKIA_JAR", "label": "Chemin de l'agent Jolokia", "type": "text",
-      "required": true, "default": "/opt/jolokia/jolokia-jvm-agent.jar",
-      "pattern": "^/[^\\s]*[^/\\s]$", "error": "Chemin absolu attendu.",
-      "help": "Fichier fourni par le formateur. Sans lui, commentez la ligne -javaagent de setenv.sh : vous lirez la JVM avec jcmd et jstat." },
-    { "key": "TIMEZONE", "label": "Fuseau horaire de la VM", "type": "text", "required": true,
+      "help": "Souvent CATALINA_HOME/logs, mais /var/log/tomcat9 avec les paquets Debian. Vérifiez : ls -l là où catalina.out existe réellement."
+    },
+    {
+      "key": "TOMCAT_USER",
+      "label": "Compte système de Tomcat",
+      "type": "text",
+      "required": true,
+      "default": "tomcat",
+      "pattern": "^[a-z_][a-z0-9_-]*$",
+      "error": "Nom de compte invalide.",
+      "help": "Le compte qui exécute la JVM : nécessaire pour jcmd et jstat (sudo -u)."
+    },
+    {
+      "key": "TOMCAT_PORT",
+      "label": "Port du connecteur HTTP",
+      "type": "text",
+      "required": true,
+      "default": "8080",
+      "pattern": "^[0-9]{2,5}$",
+      "error": "Numéro de port invalide.",
+      "help": "Détermine aussi le nom du pool de threads dans JMX : http-nio-<port>."
+    },
+    {
+      "key": "APP_CONTEXT",
+      "label": "Contexte de l'application",
+      "type": "text",
+      "required": true,
+      "default": "shopflow-api",
+      "pattern": "^[a-zA-Z0-9_-]+$",
+      "error": "Caractères alphanumériques, tiret et souligné.",
+      "help": "Nom du WAR, donc chemin du contexte : /shopflow-api/api/cart."
+    },
+    {
+      "key": "HEAP_MB",
+      "label": "Taille de la heap en Mo (-Xms = -Xmx)",
+      "type": "text",
+      "required": true,
+      "default": "512",
+      "pattern": "^[0-9]{3,5}$",
+      "error": "Valeur en mégaoctets attendue.",
+      "help": "Volontairement petite en TP : la fuite mémoire devient observable en quelques minutes. Vérifiez que la VM a au moins 2 Go de RAM."
+    },
+    {
+      "key": "JMX_PORT",
+      "label": "Port JMX local",
+      "type": "text",
+      "required": true,
+      "default": "9010",
+      "pattern": "^[0-9]{2,5}$",
+      "error": "Numéro de port invalide.",
+      "help": "Restreint à 127.0.0.1. JMX sans authentification exposé publiquement est une vulnérabilité d'exécution de code à distance."
+    },
+    {
+      "key": "JOLOKIA_PORT",
+      "label": "Port de l'agent Jolokia",
+      "type": "text",
+      "required": true,
+      "default": "8778",
+      "pattern": "^[0-9]{2,5}$",
+      "error": "Numéro de port invalide.",
+      "help": "Jolokia expose les MBeans en HTTP/JSON pour l'intégration Elastic, sur la boucle locale."
+    },
+    {
+      "key": "JOLOKIA_JAR",
+      "label": "Chemin de l'agent Jolokia",
+      "type": "text",
+      "required": true,
+      "default": "/opt/jolokia/jolokia-jvm-agent.jar",
+      "pattern": "^/[^\\s]*[^/\\s]$",
+      "error": "Chemin absolu attendu.",
+      "help": "Fichier fourni par le formateur. Sans lui, commentez la ligne -javaagent de setenv.sh : vous lirez la JVM avec jcmd et jstat."
+    },
+    {
+      "key": "TIMEZONE",
+      "label": "Fuseau horaire de la VM",
+      "type": "text",
+      "required": true,
       "default": "Europe/Paris",
-      "pattern": "^[A-Za-z]+/[A-Za-z_+-]+$", "error": "Identifiant de fuseau attendu, par exemple Europe/Paris.",
-      "help": "Le format de date de Tomcat ne contient AUCUN fuseau : le pipeline doit le lui préciser. C'est la cause numéro un des logs décalés de deux heures." },
-    { "key": "CA_PATH", "label": "Autorité de certification interne", "type": "text",
-      "required": true, "default": "/etc/efi/pki/ca.crt",
-      "pattern": "^/[^\\s]*[^/\\s]$", "error": "Chemin absolu attendu.",
-      "help": "Utilisée par les scripts de vérification pour appeler Elasticsearch en HTTPS." },
-    { "key": "ES_API_KEY", "label": "Clé d'API Elasticsearch (facultatif)", "type": "password",
-      "required": false, "placeholder": "pour le script de vérification",
-      "help": "Peut rester vide et être passée par la variable d'environnement ES_API_KEY." }
+      "pattern": "^[A-Za-z]+/[A-Za-z_+-]+$",
+      "error": "Identifiant de fuseau attendu, par exemple Europe/Paris.",
+      "help": "Le format de date de Tomcat ne contient AUCUN fuseau : le pipeline doit le lui préciser. C'est la cause numéro un des logs décalés de deux heures."
+    },
+    {
+      "key": "CA_PATH",
+      "label": "Autorité de certification interne",
+      "type": "text",
+      "required": true,
+      "default": "/etc/efi/pki/ca.crt",
+      "pattern": "^/[^\\s]*[^/\\s]$",
+      "error": "Chemin absolu attendu.",
+      "help": "Utilisée par les scripts de vérification pour appeler Elasticsearch en HTTPS."
+    },
+    {
+      "key": "ES_API_KEY",
+      "label": "Clé d'API Elasticsearch (facultatif)",
+      "type": "password",
+      "required": false,
+      "placeholder": "pour le script de vérification",
+      "help": "Peut rester vide et être passée par la variable d'environnement ES_API_KEY."
+    }
   ],
   "derived": {
     "STUDENT_ID": "student{{NUM}}",
@@ -69,59 +175,155 @@
     "POLICY_HOTE": "efi-student{{NUM}}-apache",
     "SPACE": "student{{NUM}}"
   },
-  "recap": ["STUDENT_ID", "NAMESPACE", "POLICY", "POLICY_HOTE", "STUDENT_HOST", "CATALINA_HOME",
-            "CATALINA_LOGS", "TOMCAT_PORT", "APP_CONTEXT", "HEAP_MB", "TIMEZONE", "ES_VERSION"],
+  "recap": [
+    "STUDENT_ID",
+    "NAMESPACE",
+    "POLICY",
+    "POLICY_HOTE",
+    "STUDENT_HOST",
+    "CATALINA_HOME",
+    "CATALINA_LOGS",
+    "TOMCAT_PORT",
+    "APP_CONTEXT",
+    "HEAP_MB",
+    "TIMEZONE",
+    "ES_VERSION"
+  ],
   "commands": [
-    { "from": "scripts/parcours.sh", "name": "parcours.sh",
-      "title": "Séquence complète du chapitre, étape par étape" },
-    { "from": "app/build-war.sh", "name": "build-war.sh",
-      "title": "Construction du WAR (javac + jar, sans Maven ni réseau)" },
-    { "from": "app/deploy-war.sh", "name": "deploy-war.sh",
-      "title": "Déploiement et suivi du journal de déploiement" },
-    { "from": "scripts/verif-tomcat.sh", "name": "verif-tomcat.sh",
-      "title": "Points de contrôle, dont le contrôle d'unité des durées" },
-    { "from": "scripts/scenario-lenteur.sh", "name": "scenario-lenteur.sh",
-      "title": "Scénario : application lente, sans aucune erreur" },
-    { "from": "scripts/scenario-fuite.sh", "name": "scenario-fuite.sh",
-      "title": "Scénario : fuite mémoire jusqu'à l'OutOfMemoryError" },
-    { "from": "scripts/scenario-deploiement.sh", "name": "scenario-deploiement.sh",
-      "title": "Scénario : échec de déploiement" }
+    {
+      "from": "scripts/parcours.sh",
+      "name": "parcours.sh",
+      "title": "Séquence complète du chapitre, étape par étape"
+    },
+    {
+      "from": "app/build-war.sh",
+      "name": "build-war.sh",
+      "title": "Construction du WAR (javac + jar, sans Maven ni réseau)"
+    },
+    {
+      "from": "app/deploy-war.sh",
+      "name": "deploy-war.sh",
+      "title": "Déploiement et suivi du journal de déploiement"
+    },
+    {
+      "from": "scripts/verif-tomcat.sh",
+      "name": "verif-tomcat.sh",
+      "title": "Points de contrôle, dont le contrôle d'unité des durées"
+    },
+    {
+      "from": "scripts/scenario-lenteur.sh",
+      "name": "scenario-lenteur.sh",
+      "title": "Scénario : application lente, sans aucune erreur"
+    },
+    {
+      "from": "scripts/scenario-fuite.sh",
+      "name": "scenario-fuite.sh",
+      "title": "Scénario : fuite mémoire jusqu'à l'OutOfMemoryError"
+    },
+    {
+      "from": "scripts/scenario-deploiement.sh",
+      "name": "scenario-deploiement.sh",
+      "title": "Scénario : échec de déploiement"
+    }
   ],
   "files": [
-    { "from": "configs/setenv.sh", "name": "setenv.sh",
-      "path": "{{CATALINA_HOME}}/bin/setenv.sh", "lang": "bash" },
-    { "from": "configs/server-xml-host.xml", "name": "server-xml-host.xml",
-      "path": "extrait à reporter dans {{CATALINA_HOME}}/conf/server.xml" },
-    { "from": "configs/logging.properties.extrait", "name": "logging.properties",
-      "path": "extrait de {{CATALINA_HOME}}/conf/logging.properties", "lang": "properties" },
-    { "from": "configs/logrotate-tomcat", "name": "tomcat",
-      "path": "/etc/logrotate.d/tomcat", "lang": "bash" },
-    { "from": "configs/custom-logs-multiline.yml", "name": "custom-logs-multiline.yml",
-      "path": "Fleet -> intégration Custom Logs -> Custom configurations" },
-    { "from": "configs/jolokia-mappings.yml", "name": "jolokia-mappings.yml",
-      "path": "Fleet -> intégration Jolokia -> JMX mappings" },
-    { "from": "configs/pipeline-tomcat-access.json", "name": "pipeline-tomcat-access.json",
-      "path": "PUT _ingest/pipeline/logs-shopflow_tomcat.access@custom" },
-    { "from": "configs/pipeline-tomcat-catalina.json", "name": "pipeline-tomcat-catalina.json",
-      "path": "PUT _ingest/pipeline/logs-shopflow_tomcat.catalina@custom" },
-    { "from": "configs/pipeline-tomcat-simulate.json", "name": "pipeline-tomcat-simulate.json",
-      "path": "POST .../_simulate — contrôle d'unité obligatoire" },
-    { "from": "app/ShopFlowServlet.java", "name": "ShopFlowServlet.java",
-      "path": "app/ShopFlowServlet.java" },
-    { "from": "app/web.xml", "name": "web.xml", "path": "WEB-INF/web.xml" },
-    { "from": "configs/logback.xml", "name": "logback.xml",
-      "path": "WEB-INF/classes/logback.xml — optionnel" },
-    { "from": "alertes/01-heap-saturee.json", "name": "01-heap-saturee.json",
-      "path": "Règle d'alerte — niveau 3" },
-    { "from": "alertes/02-latence-tomcat.json", "name": "02-latence-tomcat.json",
-      "path": "Règle d'alerte — niveau 2" },
-    { "from": "alertes/03-oom-exception.json", "name": "03-oom-exception.json",
-      "path": "Règle d'alerte — niveau 2" },
-    { "from": "alertes/04-deploiement-echec.json", "name": "04-deploiement-echec.json",
-      "path": "Règle d'alerte — niveau 2" }
+    {
+      "from": "configs/setenv.sh",
+      "name": "setenv.sh",
+      "path": "{{CATALINA_HOME}}/bin/setenv.sh",
+      "lang": "bash"
+    },
+    {
+      "from": "configs/server-xml-host.xml",
+      "name": "server-xml-host.xml",
+      "path": "extrait à reporter dans {{CATALINA_HOME}}/conf/server.xml"
+    },
+    {
+      "from": "configs/logging.properties.extrait",
+      "name": "logging.properties",
+      "path": "extrait de {{CATALINA_HOME}}/conf/logging.properties",
+      "lang": "properties"
+    },
+    {
+      "from": "configs/logrotate-tomcat",
+      "name": "tomcat",
+      "path": "/etc/logrotate.d/tomcat",
+      "lang": "bash"
+    },
+    {
+      "from": "configs/custom-logs-multiline.yml",
+      "name": "custom-logs-multiline.yml",
+      "path": "Fleet -> intégration Custom Logs -> Custom configurations"
+    },
+    {
+      "from": "configs/jolokia-mappings.yml",
+      "name": "jolokia-mappings.yml",
+      "path": "Fleet -> intégration Jolokia -> JMX mappings"
+    },
+    {
+      "from": "configs/pipeline-tomcat-access.a-coller.json",
+      "name": "pipeline-tomcat-access.a-coller.json",
+      "path": "Dev Tools -> Console : à coller d'un bloc"
+    },
+    {
+      "from": "configs/pipeline-tomcat-access.json",
+      "name": "pipeline-tomcat-access.json",
+      "path": "PUT _ingest/pipeline/logs-shopflow_tomcat.access@custom"
+    },
+    {
+      "from": "configs/pipeline-tomcat-catalina.a-coller.json",
+      "name": "pipeline-tomcat-catalina.a-coller.json",
+      "path": "Dev Tools -> Console : à coller d'un bloc"
+    },
+    {
+      "from": "configs/pipeline-tomcat-catalina.json",
+      "name": "pipeline-tomcat-catalina.json",
+      "path": "PUT _ingest/pipeline/logs-shopflow_tomcat.catalina@custom"
+    },
+    {
+      "from": "configs/pipeline-tomcat-simulate.json",
+      "name": "pipeline-tomcat-simulate.json",
+      "path": "POST .../_simulate — contrôle d'unité obligatoire"
+    },
+    {
+      "from": "app/ShopFlowServlet.java",
+      "name": "ShopFlowServlet.java",
+      "path": "app/ShopFlowServlet.java"
+    },
+    {
+      "from": "app/web.xml",
+      "name": "web.xml",
+      "path": "WEB-INF/web.xml"
+    },
+    {
+      "from": "configs/logback.xml",
+      "name": "logback.xml",
+      "path": "WEB-INF/classes/logback.xml — optionnel"
+    },
+    {
+      "from": "alertes/01-heap-saturee.json",
+      "name": "01-heap-saturee.json",
+      "path": "Règle d'alerte — niveau 3"
+    },
+    {
+      "from": "alertes/02-latence-tomcat.json",
+      "name": "02-latence-tomcat.json",
+      "path": "Règle d'alerte — niveau 2"
+    },
+    {
+      "from": "alertes/03-oom-exception.json",
+      "name": "03-oom-exception.json",
+      "path": "Règle d'alerte — niveau 2"
+    },
+    {
+      "from": "alertes/04-deploiement-echec.json",
+      "name": "04-deploiement-echec.json",
+      "path": "Règle d'alerte — niveau 2"
+    }
   ],
   "exemple": {
-    "NUM": "07", "STUDENT_HOST": "vm-student07",
+    "NUM": "07",
+    "STUDENT_HOST": "vm-student07",
     "ES_API_KEY": "CLE_EXEMPLE_NON_VALIDE"
   }
 }

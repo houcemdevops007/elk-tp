@@ -1,6 +1,6 @@
 {
   "_requete": "PUT _ingest/pipeline/logs-shopflow_tomcat.catalina@custom",
-  "description": "ShopFlow {{STUDENT_ID}} — parsing du journal catalina de Tomcat vers ECS",
+  "description": "ShopFlow — parsing du journal catalina de Tomcat vers ECS. Pipeline PARTAGÉ par tous les candidats.",
   "processors": [
     {
       "grok": {
@@ -50,7 +50,7 @@
       }
     },
     { "set": { "field": "service.name", "value": "shopflow-api", "override": false } },
-    { "set": { "field": "service.environment", "value": "{{STUDENT_ID}}", "override": false } },
+    { "set": { "field": "service.environment", "value": "{{{data_stream.namespace}}}", "override": false } },
     { "set": { "field": "event.module", "value": "tomcat", "override": false } },
     {
       "set": {

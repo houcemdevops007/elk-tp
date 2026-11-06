@@ -286,15 +286,11 @@ Un compte supérieur à zéro signifie que la troisième intégration fonctionne
 
 **Où est la Console** : menu ☰ en haut à gauche → tout en bas, section **Management** → **Dev Tools**. Plus rapide : tapez `Dev Tools` dans la barre de recherche du haut. En accès direct : `.../app/dev_tools#/console`. On y colle le verbe, le chemin et le corps, puis on exécute avec ▶ ou `Ctrl + Entrée`.
 
-Collez le contenu de `pipeline-access-json.json` après la ligne :
+Le générateur produit **`pipeline-access-json.a-coller.json`** : ce fichier contient la requête complète, verbe compris, **à copier d'un bloc dans la Console**. Rien à retoucher.
 
-```text
-PUT _ingest/pipeline/logs-shopflow_apache.access_json@custom
-```
+> **⚠️ Piège fréquent** — N'utilisez pas `pipeline-access-json.json` pour le collage : il commence par deux clés de documentation, `_source` et `_requete`, qui rappellent où le coller mais qu'Elasticsearch **refuse** (`unknown field`). C'est la version `.a-coller.json` qui est faite pour la Console.
 
-> **⚠️ Piège fréquent** — Le fichier fourni commence par deux clés de documentation, `_source` et `_requete`, qui rappellent où le coller. Elasticsearch les **refuse** : ne collez que `description`, `processors` et `on_failure`. Le message d'erreur est explicite (`unknown field`), mais on perd deux minutes à le lire.
-
-Ce pipeline est **unique pour les vingt candidats** : son nom ne dépend que du dataset, pas de l'espace de nom. On le crée une fois, il sert à tout le monde.
+Ce pipeline est **unique pour les vingt candidats** : son nom ne dépend que du dataset, pas de l'espace de nom. On le crée **une fois**, il sert à tout le monde — raison pour laquelle il ne contient aucune valeur propre à un candidat. Le champ `service.environment` est rempli à l'ingestion depuis `{{{data_stream.namespace}}}`, c'est-à-dire `studentXX` pour chacun.
 
 Ce que fait chaque processeur :
 
