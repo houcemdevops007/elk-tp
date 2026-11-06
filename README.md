@@ -250,7 +250,47 @@ Ajouter une intégration → **Custom Logs (Filestream)** — et non *Custom Log
 | Ingest Pipeline | à laisser vide d'abord, puis à renseigner seulement si `event.duration` est absent (voir chapitre 1, § 3.3) |
 | Sortie | `efi-elasticsearch` |
 
-**Étape 2 — répliquer.** Le script simule par défaut : rien n'est écrit sans `--appliquer`.
+**Étape 2 — où exécuter le script.** Il n'a besoin que de trois choses : Python 3, la CA
+interne, et un accès HTTPS à **Kibana** (port 5601 — pas Elasticsearch).
+
+| Machine | Convient ? |
+|---|---|
+| Votre poste d'administration, là où vous avez cloné ce dépôt | **Oui, le plus simple** — vérifiez la route vers `172.16.3.53:5601` |
+| `elk-kibana0` (172.16.3.53) | Oui — accès garanti, mais il faut y copier le script |
+| Une VM de candidat `studentNN` | **Non** — le script exige des droits d'administration sur Fleet, qu'un candidat ne doit pas avoir |
+
+Test d'accès avant toute chose :
+
+```bash
+curl -sI --cacert /etc/efi/pki/ca.crt https://172.16.3.53:5601/api/status | head -1
+```
+
+Si le port direct n'est pas routé depuis votre poste, passez par le reverse proxy en
+incluant le chemin de base : `--kibana https://elk.efi-academy.com/tp`.
+
+**Étape 3 — obtenir la clé d'API Kibana.** Dans Kibana, connecté avec un compte
+**administrateur** : **Stack Management → Security → API keys → Create API key**.
+
+| Champ | Valeur |
+|---|---|
+| Nom | `fleet-custom-logs` |
+| Contrôler les privilèges de sécurité | **laissé désactivé** — la clé hérite alors des droits de votre compte, ce qui évite d'écrire un descripteur de rôle |
+| Expiration | quelques jours suffisent |
+
+Copiez la valeur **Encoded** (base64) : c'est elle qu'attend l'en-tête `Authorization: ApiKey`.
+Elle n'est affichée **qu'une fois**.
+
+Vérifiez-la avant de lancer le script :
+
+```bash
+curl -s --cacert /etc/efi/pki/ca.crt -H "Authorization: ApiKey $KIBANA_API_KEY" -H 'kbn-xsrf: true' "https://172.16.3.53:5601/api/fleet/agent_policies?perPage=1"
+```
+
+Du JSON contenant `items` : c'est bon. `401` : ce n'est pas la valeur *Encoded*. `403` :
+le compte n'a pas les droits Fleet. Sans clé d'API, le script accepte
+`--utilisateur` et `--mot-de-passe`.
+
+**Étape 4 — répliquer.** Le script simule par défaut : rien n'est écrit sans `--appliquer`.
 
 ```bash
 export KIBANA_API_KEY='<cle-api-avec-droits-fleet>'

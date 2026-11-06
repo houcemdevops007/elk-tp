@@ -85,7 +85,18 @@ class Fleet:
                 return json.loads(brut) if brut else {}
         except urllib.error.HTTPError as e:
             detail = e.read().decode()[:600]
-            raise SystemExit(f"[ERREUR] {methode} {chemin}\n  HTTP {e.code} : {detail}")
+            aide = {
+                401: "Authentification refusée. La clé d'API doit être la valeur « Encoded »\n"
+                     "         (base64) affichée par Kibana à la création, pas l'identifiant seul.\n"
+                     "         Repli : --utilisateur <admin> --mot-de-passe.",
+                403: "Authentifié, mais droits insuffisants sur Fleet. Créez la clé depuis un\n"
+                     "         compte administrateur, SANS restreindre les privilèges : elle hérite\n"
+                     "         alors des droits de ce compte.",
+                404: "Chemin inconnu. Si vous passez par le reverse proxy, l'URL doit inclure le\n"
+                     "         chemin de base, par exemple --kibana https://elk.efi-academy.com/tp",
+            }.get(e.code)
+            raise SystemExit(f"[ERREUR] {methode} {chemin}\n  HTTP {e.code} : {detail}"
+                             + (f"\n\n  [aide] {aide}" if aide else ""))
         except urllib.error.URLError as e:
             raise SystemExit(f"[ERREUR] Kibana injoignable ({url}) : {e.reason}")
 
