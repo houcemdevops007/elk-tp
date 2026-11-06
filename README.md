@@ -98,6 +98,7 @@ tp-elk/                           (racine de ce dépôt)
     ├── render-exemple.py          rend les fichiers avec des valeurs concretes
     ├── mermaid-to-svg.cjs         pre-rend les diagrammes Mermaid en SVG
     ├── verifier-acces-kibana.sh   ADMIN : diagnostique l'acces a Kibana
+    ├── verifier-sante-cluster.sh  ADMIN : pourquoi une recherche expire
     └── ajouter-custom-logs.py     ADMIN : replique l'integration Custom Logs
                                    sur les 20 politiques efi-studentNN-apache
 
@@ -145,20 +146,10 @@ for f in .rendu/*/scripts/*.sh .rendu/*/incidents/*.sh .rendu/*/app/*.sh; do bas
 
 ## 4. Publier le tutoriel dans EFIlearn
 
-La publication est scriptée. Les deux scripts vivent dans le dépôt **EFIlearn**, sous
-`scripts/tutorials/`, car ils s'appuient sur son DSL maison (`tiptap.py`) et sur sa logique
-d'appel d'API (`push_common.py`) :
-
-| Script | Rôle |
-|---|---|
-| `md_to_tiptap.py` | Convertit les pages Markdown de CE dépôt en contenu TipTap |
-| `push_elk_condense_tutorial.py` | Crée les 14 pages du tutoriel via l'API EFIlearn |
-
-Le second attend le contenu dans `tuto-elk-condense/`, à la racine du dépôt EFIlearn :
-clonez ce dépôt-ci à cet emplacement, ou ajustez la constante `RACINE` du script.
+La publication est scriptée, aux conventions du dépôt (`scripts/tutorials/tiptap.py` + `push_common.py`).
 
 ```bash
-cd <depot-efilearn>/scripts/tutorials
+cd scripts/tutorials
 
 # 1. Aperçu local, aucun appel API : produit elk_condense_tutorial_preview.json
 python3 push_elk_condense_tutorial.py --dry-run
@@ -170,7 +161,7 @@ python3 push_elk_condense_tutorial.py --user-id <votre-uuid> --draft
 python3 push_elk_condense_tutorial.py --user-id <votre-uuid> --update
 ```
 
-Le contenu vient **des fichiers Markdown de ce dépôt** : il n'existe qu'une source de vérité. Toute correction se fait dans le `.md`, puis `--update`.
+Le contenu vient **des fichiers Markdown** de `tuto-elk-condense/` : il n'existe qu'une source de vérité. Toute correction se fait dans le `.md`, puis `--update`.
 
 ### Les 14 pages créées
 
