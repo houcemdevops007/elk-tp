@@ -138,13 +138,15 @@ def main():
                     help="forcer le paquet ; par défaut, détecté sur la politique de référence")
     ap.add_argument("--de", type=int, default=1)
     ap.add_argument("--a", type=int, default=20)
+    ap.add_argument("--verifier", action="store_true",
+                    help="n'écrit rien : dresse l'état des intégrations Custom Logs")
     ap.add_argument("--simuler", action="store_true", help="par défaut : simulation")
     ap.add_argument("--appliquer", action="store_true", help="écrit réellement dans Fleet")
     ap.add_argument("--insecure", action="store_true",
                     help="ne pas valider le certificat (lab fermé uniquement)")
     args = ap.parse_args()
 
-    if not args.appliquer:
+    if not args.appliquer and not args.verifier:
         print("[i] SIMULATION — rien ne sera écrit. Ajoutez --appliquer pour exécuter.\n")
 
     # ── Authentification ────────────────────────────────────────────────────
@@ -172,10 +174,48 @@ def main():
     politiques = {p["name"]: p for p in fleet.pagine("/api/fleet/agent_policies")}
     print(f"[i] {len(politiques)} politiques d'agent lues sur {args.kibana}")
 
+    paquets_tous = fleet.pagine("/api/fleet/package_policies")
+
+    # ── Mode vérification : état des lieux, sans rien écrire ────────────────
+    if args.verifier:
+        print(f"[i] état des intégrations « Custom Logs » "
+              f"({args.de:02d} à {args.a:02d})\n")
+        print(f"  {'politique':<26} {'intégration':<36} {'espace de nom':<14} paquet")
+        manquantes = anomalies = 0
+        for n in range(args.de, args.a + 1):
+            nn = f"{n:02d}"
+            nom_politique = args.motif.replace("{NN}", nn)
+            cible = politiques.get(nom_politique)
+            if not cible:
+                print(f"  {nom_politique:<26} POLITIQUE INTROUVABLE")
+                manquantes += 1
+                continue
+            trouvees = [q for q in paquets_tous
+                        if politiques_de(q, cible["id"])
+                        and q.get("package", {}).get("name") in PAQUETS_CUSTOM_LOGS]
+            if not trouvees:
+                print(f"  {nom_politique:<26} {'— ABSENTE —':<36}")
+                manquantes += 1
+                continue
+            for q in trouvees:
+                ns = q.get("namespace") or ""
+                attendu = f"student{nn}"
+                marque = "" if ns == attendu else f"  <-- ATTENDU {attendu}"
+                if marque:
+                    anomalies += 1
+                print(f"  {nom_politique:<26} {q['name'][:36]:<36} {ns:<14} "
+                      f"{q['package']['name']} v{q['package']['version']}{marque}")
+        total = args.a - args.de + 1
+        print(f"\n[OK] {total - manquantes}/{total} politique(s) équipée(s), "
+              f"{anomalies} espace(s) de nom incorrect(s).")
+        if manquantes:
+            print("     Relancez sans --verifier pour compléter.")
+        return
+
     if args.reference not in politiques:
         raise SystemExit(f"[ERREUR] politique de référence absente : {args.reference}")
 
-    paquets = fleet.pagine("/api/fleet/package_policies")
+    paquets = paquets_tous
     ref_id = politiques[args.reference]["id"]
     recherches = (args.paquet,) if args.paquet else PAQUETS_CUSTOM_LOGS
     modeles = [q for q in paquets

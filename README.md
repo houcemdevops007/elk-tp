@@ -345,8 +345,17 @@ python3 tools/ajouter-custom-logs.py --cacert ~/efi-elk-platform/pki/ca.crt --ap
 Options : `--kibana`, `--cacert` (CA interne), `--reference`, `--motif`, `--de`/`--a`,
 `--utilisateur`/`--mot-de-passe` si vous n'avez pas de clé d'API, `--insecure` en lab fermé.
 
+**Étape 5 — contrôler.** Le mode `--verifier` n'écrit rien et dresse l'état des vingt
+politiques : intégration présente ou absente, espace de nom, version du paquet. Il signale
+tout espace de nom qui ne correspond pas au candidat.
+
+```bash
+python3 tools/ajouter-custom-logs.py --cacert ~/efi-elk-platform/pki/ca.crt --verifier
+```
+
 Après application, les agents déjà enrôlés reçoivent la nouvelle révision en quelques
-secondes, sans réinstallation. Vérification :
+secondes, sans réinstallation. Une fois qu'un agent est enrôlé et qu'Apache écrit son
+journal JSON :
 
 ```bash
 curl -s --cacert /etc/efi/pki/ca.crt -H "Authorization: ApiKey $ES_API_KEY" "https://172.16.3.50:9200/logs-shopflow_apache.access_json-student01/_count?pretty"
