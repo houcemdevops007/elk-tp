@@ -233,16 +233,39 @@ C'est l'intégration que votre politique n'a pas encore, et c'est la plus import
 
 1. **Fleet → Agent policies → `efi-studentXX-apache` → Ajouter une intégration**.
 2. Chercher « Custom Logs ». **Deux entrées portent ce nom** : choisissez **Custom Logs (Filestream)**, et surtout pas **Custom Logs (Deprecated)**.
-3. Renseigner :
+3. Renseigner. Le formulaire s'intitule **Custom Filestream Logs** une fois l'intégration choisie :
 
-| Paramètre | Valeur |
-|---|---|
-| Intégration | **Custom Logs (Filestream)** |
-| Nom de l'intégration | `custom-logs-efi-studentXX-apache` |
-| Chemin du fichier | `/var/log/apache2/access_json.log` |
-| Dataset name | `shopflow_apache.access_json` |
-| Espace de nom | `studentXX` |
-| Sortie | `efi-elasticsearch` |
+| Paramètre | Valeur | Pourquoi |
+|---|---|---|
+| Nom de l'intégration | `custom-logs-efi-studentXX-apache` | Convention : on retrouve la politique dans le nom |
+| **Espace de nom** | `studentXX` | **Le réglage le plus important** : il décide du troisième segment du data stream. Laissé à `default`, toutes vos requêtes du manuel tomberont à côté |
+| Paths | `/var/log/apache2/access_json.log` | Le journal JSON créé à l'étape 1 |
+| Use the « logs.ecs » data stream | **désactivé** | Activé, il **ignore** le *Dataset name* **et** l'*Ingest Pipeline* : vous perdriez les deux réglages qui comptent |
+| Dataset name | `shopflow_apache.access_json` | Donne `logs-shopflow_apache.access_json-studentXX` |
+| Créer un modèle d'index dédié | **activé** | Mappings corrects pour un dataset personnalisé |
+| Parsers | **laisser vide** | Le JSON est décodé **dans Elasticsearch** par le pipeline, pas par l'agent. Un parser `ndjson` ici remonterait les champs à la racine et ferait échouer le pipeline |
+| Exclude Files | `\.gz$` (valeur par défaut) | Évite de relire les journaux compressés par la rotation |
+| Type de flux de données | `Logs` | |
+| Sortie | `efi-elasticsearch` | |
+
+> **⚠️ Piège fréquent** — Le champ **Parsers** du formulaire propose un exemple commenté (`#- ndjson:`, `#- multiline:`). Laissez-le tel quel pour **cette** intégration : ici, c'est le pipeline d'ingestion qui parse. Le bloc `parsers: - multiline:` du chapitre 2 concerne une **autre** intégration, celle des journaux Tomcat, où il est indispensable.
+
+#### Le champ « Ingest Pipeline » : à trancher par la mesure
+
+La convention `<type>-<dataset>@custom` fait appeler votre pipeline **automatiquement** — à condition que le modèle d'index créé pour ce dataset personnalisé le câble. Selon les versions, ce n'est pas garanti. Plutôt que de supposer, mesurez :
+
+1. Laissez d'abord le champ **Ingest Pipeline vide**, enregistrez, générez du trafic.
+2. Dans Discover, sur `logs-shopflow_apache.access_json-studentXX`, regardez si `event.duration` existe.
+3. **S'il existe** : le pipeline est bien appelé, ne touchez à rien.
+4. **S'il n'existe pas** : rouvrez l'intégration et saisissez `logs-shopflow_apache.access_json@custom` dans **Ingest Pipeline**.
+
+On peut aussi lire le câblage directement :
+
+```text
+GET logs-shopflow_apache.access_json-studentXX/_settings?filter_path=**.default_pipeline
+```
+
+> **⚠️ Piège fréquent** — Ne renseignez pas le champ « à tout hasard » sans vérifier. Si le pipeline finissait par s'exécuter **deux fois**, le second passage ne trouverait plus le champ `message` — supprimé par le premier — et poserait `error.message` sur **chaque** document. Le contrôle qualité « zéro `error.message` » de l'étape 4 détecte exactement cela.
 
 4. Enregistrer. La politique passe à **3 intégrations** et sa révision augmente ; les agents déjà enrôlés reçoivent le changement en quelques secondes, sans réinstallation.
 

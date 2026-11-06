@@ -239,11 +239,15 @@ Ajouter une intégration → **Custom Logs (Filestream)** — et non *Custom Log
 
 | Paramètre | Valeur |
 |---|---|
-| Intégration | **Custom Logs (Filestream)** |
+| Intégration | **Custom Logs (Filestream)** — le formulaire s'intitule *Custom Filestream Logs* |
 | Nom | `custom-logs-efi-student01-apache` |
-| Chemin | `/var/log/apache2/access_json.log` |
+| Espace de nom | `student01` — **le réglage le plus important** |
+| Paths | `/var/log/apache2/access_json.log` |
+| Use the « logs.ecs » data stream | **désactivé** (sinon dataset et pipeline sont ignorés) |
 | Dataset name | `shopflow_apache.access_json` |
-| Espace de nom | `student01` |
+| Créer un modèle d'index dédié | activé |
+| Parsers | laisser vide : le JSON est parsé par le pipeline, pas par l'agent |
+| Ingest Pipeline | à laisser vide d'abord, puis à renseigner seulement si `event.duration` est absent (voir chapitre 1, § 3.3) |
 | Sortie | `efi-elasticsearch` |
 
 **Étape 2 — répliquer.** Le script simule par défaut : rien n'est écrit sans `--appliquer`.
