@@ -95,6 +95,9 @@ case "$PROFIL" in
       req "/produit/inexistant-$RANDOM" >/dev/null
       req "/.env" >/dev/null
       req "/catalogue.html" >/dev/null
+      # Appel réussi sur le même chemin applicatif que les erreurs : sans lui,
+      # le taux d'erreur de l'« application » serait toujours de 100 %.
+      req "${LENT}?ms=10" >/dev/null
       if [ $((RANDOM % 3)) -eq 0 ]; then
         codes=(500 502 503 504)
         req "${ERREUR}?type=${codes[$((RANDOM % 4))]}" >/dev/null
