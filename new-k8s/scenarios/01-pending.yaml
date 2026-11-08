@@ -1,0 +1,85 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  PANNE 1 — Pod Pending ({{STUDENT_ID}})
+#
+#  Ici : un nodeSelector qui ne correspond à AUCUN de vos deux nœuds. Le pod
+#  existe, il est valide, mais aucun nœud ne peut l'accueillir.
+#
+#  Diagnostic attendu :
+#    kubectl -n {{NAMESPACE}} get pods            -> Pending
+#    kubectl -n {{NAMESPACE}} describe pod ...    -> FailedScheduling
+#    message : « 0/2 nodes are available:
+#                1 node(s) didn't match Pod's node affinity/selector,
+#                1 node(s) had untolerated taint
+#                  {node-role.kubernetes.io/control-plane: } »
+#
+#  SUR UN CLUSTER À DEUX NŒUDS, LISEZ LE MESSAGE EN ENTIER : le scheduler
+#  donne UNE RAISON PAR NŒUD. Le worker est écarté parce qu'il ne porte pas
+#  le label demandé ; le master à cause de sa taint. Deux causes différentes
+#  pour une seule phase Pending.
+#
+#  ── VARIANTE A — le master a de la place, sa taint l'interdit ─────────────
+#  Remplacez le nodeSelector ci-dessous par celui du master :
+#      nodeSelector:
+#        node-role.kubernetes.io/control-plane: ""
+#  Le pod reste Pending, mais le message change :
+#      « 1 node(s) had untolerated taint {node-role.kubernetes.io/control-plane: },
+#        1 node(s) didn't match Pod's node affinity/selector »
+#  La capacité existe. C'est une règle de placement qui refuse, pas une
+#  pénurie de ressources. Un `tolerations` identique à celui de l'agent
+#  (manifests/20-elastic-agent-daemonset.yaml) débloquerait le pod.
+#
+#  ── VARIANTE B — le quota refuse AVANT l'ordonnancement ───────────────────
+#  Supprimez le nodeSelector, puis passez à 3 réplicas à 900Mi :
+#      kubectl -n {{NAMESPACE}} delete deploy panne-pending
+#      # dans ce fichier : retirer nodeSelector, replicas: 3,
+#      #                   requests.memory: 900Mi, limits.memory: 1Gi
+#      kubectl apply -f scenarios/01-pending.yaml
+#
+#  Le ResourceQuota du namespace plafonne requests.memory à 2Gi, et
+#  shopflow-worker en réserve déjà 128Mi : deux pods passent (1800Mi),
+#  le TROISIÈME EST REFUSÉ.
+#
+#  ET C'EST LÀ LE PIÈGE : il n'y a AUCUN pod Pending. Le pod refusé par le
+#  quota n'est jamais créé — c'est le ReplicaSet qui échoue.
+#      kubectl -n {{NAMESPACE}} get pods                     # 2 pods sains
+#      kubectl -n {{NAMESPACE}} describe rs \
+#        -l app.kubernetes.io/name=panne-pending             # exceeded quota
+#      kubectl -n {{NAMESPACE}} describe quota quota-shopflow
+#
+#  Une alerte sur les pods Pending ne verra JAMAIS cette panne. Seule la
+#  comparaison « réplicas désirés / disponibles » (data stream
+#  metrics-kubernetes.state_deployment-{{NAMESPACE}}) la détecte.
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: panne-pending
+  namespace: "{{NAMESPACE}}"
+  labels:
+    app.kubernetes.io/name: panne-pending
+    efi.formation/scenario: "01-pending"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: panne-pending
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: panne-pending
+        efi.formation/scenario: "01-pending"
+    spec:
+      nodeSelector:
+        # Aucun de vos deux nœuds ne porte ce label : le pod reste Pending.
+        efi.formation/disque: ssd-inexistant
+      containers:
+        - name: worker
+          image: "{{DEMO_IMAGE}}"
+          command: ["/bin/sh", "-c", "sleep 3600"]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi

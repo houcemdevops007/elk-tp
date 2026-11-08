@@ -1,0 +1,15 @@
+{
+  "_nom": "oomkilled-{{STUDENT_ID}}",
+  "_niveau": "2 — symptôme",
+  "_fenetre": "15 minutes",
+  "_intervalle": "3 minutes",
+  "_condition": "au moins une occurrence",
+  "_pourquoi_cette_regle_est_indispensable": "Un OOMKilled ne laisse AUCUNE trace dans les logs applicatifs : le noyau tue le processus immédiatement, sans lui laisser le temps d'écrire quoi que ce soit. La seule source d'information est l'état déclaré par kube-state-metrics, dans le champ last_terminated_reason. Sans kube-state-metrics, cette panne est invisible.",
+  "esql": "FROM metrics-kubernetes.state_container-{{NAMESPACE}} | WHERE @timestamp > NOW() - 15 minutes | WHERE kubernetes.namespace == \"{{NAMESPACE}}\" | WHERE kubernetes.container.status.last_terminated_reason == \"OOMKilled\" | STATS occurrences = COUNT(*) BY kubernetes.pod.name | WHERE occurrences > 0 | KEEP kubernetes.pod.name, occurrences",
+  "_diagnostic_ensuite": {
+    "limite trop basse ?": "comparer le working set en régime normal à la limite déclarée : si l'écart est faible, augmenter la limite",
+    "fuite ?": "observer la pente sur plusieurs heures : une croissance indéfinie désigne le code, pas la limite",
+    "JVM mal configurée ?": "comparer -Xmx à limits.memory : un écart insuffisant garantit l'OOMKill, car -Xmx ne borne que la heap",
+    "pic ponctuel ?": "corréler avec le trafic : chercher la requête coûteuse"
+  }
+}

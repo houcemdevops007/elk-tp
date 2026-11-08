@@ -1,0 +1,11 @@
+{
+  "_nom": "pods-redemarrages-{{STUDENT_ID}}",
+  "_niveau": "2 — symptôme proche de l'impact",
+  "_fenetre": "15 minutes",
+  "_intervalle": "3 minutes",
+  "_seuil": "plus de 3 redémarrages d'un même conteneur sur la fenêtre",
+  "_pourquoi_max_moins_min": "kubernetes.container.status.restarts est un COMPTEUR CUMULÉ depuis la création du pod. Un pod qui a redémarré 40 fois la semaine dernière et plus du tout depuis ne doit pas alerter. On compare donc le maximum et le minimum sur la fenêtre : la différence est le nombre de NOUVEAUX redémarrages.",
+  "_regroupement": "par kubernetes.pod.name — sinon une seule alerte globale ne dit pas quel pod est touché",
+  "esql": "FROM metrics-kubernetes.state_container-{{NAMESPACE}} | WHERE @timestamp > NOW() - 15 minutes | WHERE kubernetes.namespace == \"{{NAMESPACE}}\" | STATS mx = MAX(kubernetes.container.status.restarts), mn = MIN(kubernetes.container.status.restarts) BY kubernetes.pod.name | EVAL nouveaux = mx - mn | WHERE nouveaux > 3 | KEEP kubernetes.pod.name, nouveaux, mx | SORT nouveaux DESC",
+  "_action": "Diagnostiquer avec le tableau de diagnostic : si last_terminated_reason vaut OOMKilled, c'est la mémoire ; si Error, ce sont les logs applicatifs ; si la sonde apparaît dans les events, c'est la supervision qui tue l'application."
+}

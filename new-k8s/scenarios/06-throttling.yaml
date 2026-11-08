@@ -1,0 +1,64 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  PANNE 6 — Throttling CPU ({{STUDENT_ID}})
+#
+#  LA PANNE LA PLUS DIFFICILE À DIAGNOSTIQUER, parce qu'elle ne produit
+#  AUCUNE erreur : le conteneur fonctionne, ne redémarre pas, ne journalise
+#  rien d'anormal. Il est simplement RALENTI par le noyau, qui l'empêche de
+#  dépasser sa limite CPU.
+#
+#  Le seul symptôme côté application est une latence dégradée — souvent
+#  attribuée à tort à la base de données ou au réseau.
+#
+#  Diagnostic attendu :
+#    AUCUN redémarrage, AUCUNE erreur, pod Ready
+#    métrique décisive : kubernetes.container.cpu.usage.limit.pct en
+#    PLATEAU juste sous 1 pendant toute la charge
+#    la durée annoncée par le conteneur (champ event.duration) augmente
+#
+#  Correction : passer limits.cpu à 1 et comparer les durées. Attention :
+#  si requests reste bas, le pod peut être placé sur un nœud déjà chargé et
+#  subir la contention même avec une limite élevée.
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: panne-throttling
+  namespace: "{{NAMESPACE}}"
+  labels:
+    app.kubernetes.io/name: panne-throttling
+    efi.formation/scenario: "06-throttling"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: panne-throttling
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: panne-throttling
+        efi.formation/scenario: "06-throttling"
+    spec:
+      containers:
+        - name: worker
+          image: "{{DEMO_IMAGE}}"
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "calcul en boucle : mesure du temps d'un lot de travail"
+              while true; do
+                DEBUT=$(date +%s%N)
+                i=0
+                while [ $i -lt 20000 ]; do i=$(( i + 1 )); done
+                FIN=$(date +%s%N)
+                MS=$(( (FIN - DEBUT) / 1000000 ))
+                echo "{\"@timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\",\"log.level\":\"INFO\",\"service.name\":\"shopflow-worker\",\"event.duration\":$(( MS * 1000000 )),\"message\":\"lot traite en ${MS} ms\"}"
+                sleep 1
+              done
+          resources:
+            requests:
+              cpu: 20m
+              memory: 64Mi
+            limits:
+              # VOLONTAIREMENT basse : 50 millicœurs, soit 5 % d'un cœur.
+              cpu: 50m
+              memory: 128Mi

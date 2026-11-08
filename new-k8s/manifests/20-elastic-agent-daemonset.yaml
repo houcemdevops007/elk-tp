@@ -1,0 +1,212 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  20-elastic-agent-daemonset.yaml — collecte Kubernetes ({{STUDENT_ID}})
+#
+#  POURQUOI UN DAEMONSET : les fichiers de log des conteneurs vivent sur le
+#  système de fichiers du NŒUD qui exécute le pod (/var/log/pods). Il faut
+#  donc un collecteur par nœud, qui monte /var/log. C'est exactement la
+#  définition d'un DaemonSet — un pod sur chaque nœud, y compris ceux
+#  ajoutés plus tard.
+#
+#  SUR VOTRE CLUSTER kubeadm : 1 master + 1 worker = DEUX pods d'agent.
+#  Les logs de vos applications sont sur le WORKER, ceux du control plane
+#  (etcd, kube-apiserver, CoreDNS, Calico) sur le MASTER. Un seul agent ne
+#  verrait que la moitié du cluster.
+#
+#  Cet agent est DISTINCT de celui installé sur l'hôte aux chapitres 1 et 2 :
+#  il s'enrôle dans la politique {{POLICY_K8S}}, pas dans {{POLICY}}.
+#
+#  AVANT D'APPLIQUER : lancez le fichier remis par le formateur, qui crée le
+#  namespace et le Secret. Le token n'est JAMAIS en clair dans un manifeste,
+#  et ce fichier-ci ne contient aucun secret : il peut aller dans Git.
+#    bash ~/installer-agent-k8s-{{STUDENT_ID}}.sh
+#  Il fait exactement ceci, et rien de plus :
+#    kubectl create namespace elastic-agent
+#    kubectl -n elastic-agent create secret generic elastic-agent-creds \
+#      --from-literal=fleet-url='<URL de votre Fleet Server>' \
+#      --from-literal=enrollment-token='<token de {{POLICY_K8S}}>'
+#
+#  La référence reste le manifeste généré par VOTRE Kibana
+#  (Fleet -> Agents -> Add agent -> Kubernetes) : il correspond à la version
+#  de la stack. Ce fichier en est la version commentée.
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: elastic-agent
+  namespace: elastic-agent
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: elastic-agent
+rules:
+  # L'agent interroge l'API Kubernetes pour ENRICHIR chaque ligne de log
+  # avec le namespace, le pod, le conteneur, le nœud et les labels.
+  # Sans ces droits : des logs sans nom de pod, donc inexploitables.
+  - apiGroups: [""]
+    resources: [nodes, namespaces, events, pods, services, configmaps,
+                serviceaccounts, persistentvolumes, persistentvolumeclaims]
+    verbs: ["get", "watch", "list"]
+  - apiGroups: ["apps"]
+    resources: [replicasets, deployments, daemonsets, statefulsets]
+    verbs: ["get", "watch", "list"]
+  - apiGroups: ["batch"]
+    resources: [jobs, cronjobs]
+    verbs: ["get", "watch", "list"]
+  - apiGroups: [""]
+    resources: [nodes/stats, nodes/metrics, nodes/proxy]
+    verbs: ["get"]
+  - nonResourceURLs: ["/metrics"]
+    verbs: ["get"]
+  # ÉLECTION DU LEADER : les données de niveau CLUSTER (kube-state-metrics,
+  # events) ne doivent être collectées que par UN agent, sinon tout serait en
+  # double. Les deux agents se disputent ce Lease ; le perdant se contente de
+  # son nœud. Si le leader disparaît, l'autre prend le relais.
+  - apiGroups: ["coordination.k8s.io"]
+    resources: [leases]
+    verbs: ["get", "create", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: elastic-agent
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: elastic-agent
+subjects:
+  - kind: ServiceAccount
+    name: elastic-agent
+    namespace: elastic-agent
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: elastic-agent
+  namespace: elastic-agent
+  labels:
+    app.kubernetes.io/name: elastic-agent
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: elastic-agent
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: elastic-agent
+    spec:
+      serviceAccountName: elastic-agent
+      # hostNetwork : nécessaire pour joindre le kubelet DE SON PROPRE nœud
+      # sur le port 10250, sans dépendre du réseau de pods (Calico).
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      tolerations:
+        # kubeadm pose sur le master la taint control-plane:NoSchedule, qui
+        # en interdit l'accès aux pods ordinaires. SANS CETTE TOLÉRANCE, le
+        # DaemonSet n'a qu'UN pod, sur le worker : vos applications sont
+        # collectées, mais pas le control plane ni les métriques du master.
+        # Et rien ne le signale : kubectl get ds affiche juste DESIRED 1.
+        - key: node-role.kubernetes.io/control-plane
+          effect: NoSchedule
+          operator: Exists
+        # Clé historique, pour les clusters antérieurs à Kubernetes 1.24.
+        - key: node-role.kubernetes.io/master
+          effect: NoSchedule
+          operator: Exists
+      containers:
+        - name: elastic-agent
+          image: "docker.elastic.co/beats/elastic-agent:{{ES_VERSION}}"
+          env:
+            - name: FLEET_ENROLL
+              value: "1"
+            # L'URL comme le token viennent du Secret créé par le script du
+            # formateur : ce manifeste ne contient aucune valeur de site.
+            - name: FLEET_URL
+              valueFrom:
+                secretKeyRef:
+                  name: elastic-agent-creds
+                  key: fleet-url
+            - name: FLEET_ENROLLMENT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: elastic-agent-creds
+                  key: enrollment-token
+            # CA PRIVÉE (facultatif) : si l'enrôlement échoue sur une erreur
+            # x509, demandez au formateur le Secret elastic-agent-ca, puis
+            # DÉCOMMENTEZ ces trois blocs (variable, montage, volume).
+            # - name: FLEET_CA
+            #   value: /etc/efi-ca/ca.crt
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            # NODE_IP : l'intégration Kubernetes vise le kubelet par
+            # https://${env.NODE_IP}:10250. Passer par le NOM du nœud
+            # échouerait sur « no such host » si le DNS ne le résout pas.
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+          securityContext:
+            # L'agent lit /var/log et le cgroupfs du nœud : il lui faut root.
+            # En revanche il ne monte RIEN en écriture, hormis son état.
+            runAsUser: 0
+          resources:
+            # Un collecteur non borné peut provoquer l'éviction de pods
+            # applicatifs : l'outil d'observation devient alors la cause de
+            # l'incident. On le borne, toujours.
+            requests:
+              cpu: 100m
+              memory: 200Mi
+            limits:
+              cpu: 500m
+              memory: 600Mi
+          volumeMounts:
+            - name: varlog
+              mountPath: /var/log
+              readOnly: true
+            - name: proc
+              mountPath: /hostfs/proc
+              readOnly: true
+            - name: cgroup
+              mountPath: /hostfs/sys/fs/cgroup
+              readOnly: true
+            # /etc/machine-id : identifiant stable du nœud. Sans lui, les
+            # métadonnées d'hôte sont incomplètes.
+            - name: etc-machine-id
+              mountPath: /hostfs/etc/machine-id
+              readOnly: true
+            # ÉTAT DE L'AGENT, sur le disque DU NŒUD. Sans ce volume, chaque
+            # recréation du pod produit un NOUVEL agent dans Fleet et laisse
+            # l'ancien « Offline » : au bout de quelques jours, la liste des
+            # agents devient illisible.
+            - name: agent-state
+              mountPath: /usr/share/elastic-agent/state
+            # - name: efi-ca
+            #   mountPath: /etc/efi-ca
+            #   readOnly: true
+      volumes:
+        - name: varlog
+          hostPath:
+            path: /var/log
+        - name: proc
+          hostPath:
+            path: /proc
+        - name: cgroup
+          hostPath:
+            path: /sys/fs/cgroup
+        - name: etc-machine-id
+          hostPath:
+            path: /etc/machine-id
+            type: File
+        - name: agent-state
+          hostPath:
+            path: /var/lib/elastic-agent-managed/elastic-agent/state
+            type: DirectoryOrCreate
+        # - name: efi-ca
+        #   secret:
+        #     secretName: elastic-agent-ca

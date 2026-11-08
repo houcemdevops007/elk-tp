@@ -1,0 +1,107 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  30-shopflow-demo.yaml — application de démonstration dans {{NAMESPACE}}
+#
+#  Aucune image à construire : une image de base et une boucle shell qui
+#  émet du JSON ECS sur la sortie standard. C'est exactement ce qu'on
+#  attend d'une application conteneurisée — écrire sur stdout et rien
+#  d'autre : le runtime capture, le DaemonSet collecte, l'application n'a
+#  RIEN à savoir de la plateforme d'observabilité.
+#
+#  kubectl apply -f 30-shopflow-demo.yaml
+#  kubectl -n {{NAMESPACE}} rollout status deploy/shopflow-worker
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: shopflow-worker-config
+  namespace: "{{NAMESPACE}}"
+data:
+  LOG_LEVEL: "INFO"
+  WORKER_THREADS: "4"
+  # Taux d'erreur simulé : 1 traitement sur N échoue.
+  TAUX_ERREUR: "25"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shopflow-worker
+  namespace: "{{NAMESPACE}}"
+  labels:
+    # Les labels recommandés deviennent vos DIMENSIONS d'analyse dans
+    # Kibana : segmenter par application, composant et version sans
+    # travail supplémentaire. Des labels anarchiques produisent des
+    # dashboards impossibles à construire.
+    app.kubernetes.io/name: shopflow-worker
+    app.kubernetes.io/component: worker
+    app.kubernetes.io/part-of: shopflow
+    app.kubernetes.io/version: "1.8.0"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: shopflow-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: shopflow-worker
+        app.kubernetes.io/component: worker
+        app.kubernetes.io/part-of: shopflow
+        app.kubernetes.io/version: "1.8.0"
+      annotations:
+        # Décodage JSON des logs de CE pod uniquement, sans toucher à la
+        # politique globale de l'agent.
+        # À VÉRIFIER : les annotations ne sont prises en compte que si les
+        # « hints » sont activés dans la configuration de l'agent.
+        co.elastic.logs/enabled: "true"
+        co.elastic.logs/json.keys_under_root: "true"
+        co.elastic.logs/json.add_error_key: "true"
+        co.elastic.logs/json.overwrite_keys: "true"
+    spec:
+      containers:
+        - name: worker
+          image: "{{DEMO_IMAGE}}"
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "{\"@timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\",\"log.level\":\"INFO\",\"service.name\":\"shopflow-worker\",\"service.environment\":\"{{STUDENT_ID}}\",\"message\":\"demarrage du worker\"}"
+              while true; do
+                D=$(( (RANDOM % 250) + 30 ))
+                if [ $(( RANDOM % ${TAUX_ERREUR:-25} )) -eq 0 ]; then
+                  echo "{\"@timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\",\"log.level\":\"ERROR\",\"service.name\":\"shopflow-worker\",\"service.environment\":\"{{STUDENT_ID}}\",\"error.type\":\"java.sql.SQLTimeoutException\",\"message\":\"traitement en echec: timeout base de donnees\"}" >&2
+                else
+                  echo "{\"@timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\",\"log.level\":\"INFO\",\"service.name\":\"shopflow-worker\",\"service.environment\":\"{{STUDENT_ID}}\",\"event.duration\":$(( D * 1000000 )),\"message\":\"commande traitee en ${D} ms\"}"
+                fi
+                sleep 1
+              done
+          envFrom:
+            - configMapRef:
+                name: shopflow-worker-config
+          resources:
+            # Valeurs saines de départ. Les scénarios du chapitre les
+            # dégradent VOLONTAIREMENT, une à la fois.
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          readinessProbe:
+            exec:
+              command: ["/bin/true"]
+            initialDelaySeconds: 3
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: shopflow-worker
+  namespace: "{{NAMESPACE}}"
+  labels:
+    app.kubernetes.io/name: shopflow-worker
+spec:
+  selector:
+    app.kubernetes.io/name: shopflow-worker
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
