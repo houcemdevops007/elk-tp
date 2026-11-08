@@ -1,17 +1,33 @@
 {
   "_requete": "PUT _ingest/pipeline/logs-shopflow_tomcat.catalina@custom",
+  "on_failure": [
+    {
+      "set": {
+        "field": "error.message",
+        "value": "{{ _ingest.on_failure_message }}"
+      }
+    }
+  ],
   "description": "ShopFlow — parsing du journal catalina de Tomcat vers ECS. Pipeline PARTAGÉ par tous les candidats.",
+  "field_access_pattern": "classic",
   "processors": [
     {
-      "grok": {
+      "json": {
+        "ignore_failure": true,
         "field": "message",
-        "patterns": [
-          "%{MONTHDAY:_tmp.day}-%{MONTH:_tmp.month}-%{YEAR:_tmp.year} %{TIME:_tmp.time} %{LOGLEVEL:log.level} \\[%{DATA:process.thread.name}\\] %{JAVACLASS:log.logger}%{SPACE}%{GREEDYMULTILINE:message}"
-        ],
-        "pattern_definitions": {
-          "GREEDYMULTILINE": "(.|\\n)*"
-        },
-        "ignore_missing": true,
+        "target_field": "_tmp.app",
+        "if": "ctx.message instanceof String && ctx.message.startsWith('{')"
+      }
+    },
+    {
+      "script": {
+        "source": "   def a = ctx._tmp.app;\n   if (a['log.level'] != null) { if (ctx.log == null) { ctx.log = [:]; } ctx.log.level = a['log.level']; }\n   if (a['process.thread.name'] != null) { ctx.process = ['thread': ['name': a['process.thread.name']]]; }\n   if (a['@timestamp'] != null) {\n     String ts = a['@timestamp'];\n     if (ts.length() > 24) { ts = ts.substring(0, 23) + 'Z'; }\n     ctx['@timestamp'] = ts;\n   }\n   if (a['message'] != null) { ctx.message = a['message']; }\n   if (ctx.tags == null) { ctx.tags = []; }\n   ctx.tags.add('shopflow_app_json');",
+        "lang": "painless",
+        "if": "   ctx._tmp?.app != null"
+      }
+    },
+    {
+      "grok": {
         "on_failure": [
           {
             "append": {
@@ -21,68 +37,88 @@
               ]
             }
           }
-        ]
+        ],
+        "field": "message",
+        "patterns": [
+          "%{MONTHDAY:_tmp.day}-%{MONTH:_tmp.month}-%{YEAR:_tmp.year} %{TIME:_tmp.time} %{LOGLEVEL:log.level} \\[%{DATA:process.thread.name}\\] %{JAVACLASS:log.logger}%{SPACE}%{GREEDYMULTILINE:message}"
+        ],
+        "ignore_missing": true,
+        "pattern_definitions": {
+          "GREEDYMULTILINE": "(.|\\n)*"
+        },
+        "if": "   ctx.message instanceof String && ctx.message.length() > 0 && Character.isDigit(ctx.message.charAt(0))"
       }
     },
     {
       "set": {
+        "ignore_empty_value": true,
         "field": "_tmp.ts",
-        "value": "{{{_tmp.day}}}-{{{_tmp.month}}}-{{{_tmp.year}}} {{{_tmp.time}}}",
-        "ignore_empty_value": true
+        "value": "{{{_tmp.day}}}-{{{_tmp.month}}}-{{{_tmp.year}}} {{{_tmp.time}}}"
       }
     },
     {
       "date": {
-        "field": "_tmp.ts",
-        "target_field": "@timestamp",
+        "ignore_failure": true,
         "formats": [
           "dd-MMM-yyyy HH:mm:ss.SSS",
           "dd-MMM-yyyy HH:mm:ss"
         ],
-        "timezone": "{{TIMEZONE}}",
-        "locale": "en",
-        "ignore_failure": true
+        "field": "_tmp.ts",
+        "target_field": "@timestamp",
+        "timezone": "UTC",
+        "locale": "en"
       }
     },
     {
       "script": {
+        "ignore_failure": true,
         "description": "normalise les niveaux JULI vers le vocabulaire ECS",
-        "lang": "painless",
         "source": "if (ctx.log?.level != null) { String l = ctx.log.level.toUpperCase(); if (l == 'SEVERE') { ctx.log.level = 'ERROR'; } else if (l == 'WARNING') { ctx.log.level = 'WARN'; } else if (l == 'FINE' || l == 'FINER' || l == 'FINEST') { ctx.log.level = 'DEBUG'; } }",
-        "ignore_failure": true
+        "lang": "painless"
       }
     },
     {
       "grok": {
+        "ignore_failure": true,
         "description": "extrait le type et le message de l'exception Java, s'il y en a une",
+        "ignore_missing": true,
         "field": "message",
         "patterns": [
           "%{JAVACLASS:error.type}: %{DATA:error.message}(\\n|$)"
-        ],
+        ]
+      }
+    },
+    {
+      "remove": {
         "ignore_missing": true,
-        "ignore_failure": true
+        "tag": "retire les faux types d'exception (NOTE, lineNumber…)",
+        "field": [
+          "error.type",
+          "error.message"
+        ],
+        "if": "   ctx.error?.type != null && !(ctx.error.type.endsWith('Exception') || ctx.error.type.endsWith('Error'))"
       }
     },
     {
       "set": {
+        "field": "log.level",
+        "value": "ERROR",
+        "if": "  ctx.error?.type != null && ctx.log?.level == null"
+      }
+    },
+    {
+      "set": {
+        "override": false,
         "field": "service.name",
-        "value": "shopflow-api",
-        "override": false
+        "value": "shopflow-api"
       }
     },
     {
       "set": {
+        "override": false,
         "field": "service.environment",
         "value": "{{{data_stream.namespace}}}",
-        "override": false,
         "if": "ctx.data_stream?.namespace != null"
-      }
-    },
-    {
-      "set": {
-        "field": "event.module",
-        "value": "tomcat",
-        "override": false
       }
     },
     {
@@ -96,14 +132,6 @@
       "remove": {
         "field": "_tmp",
         "ignore_missing": true
-      }
-    }
-  ],
-  "on_failure": [
-    {
-      "set": {
-        "field": "error.message",
-        "value": "{{ _ingest.on_failure_message }}"
       }
     }
   ]
