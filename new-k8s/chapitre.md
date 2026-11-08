@@ -323,7 +323,7 @@ kubectl -n studentXX logs -l app.kubernetes.io/name=shopflow-worker --tail=5 --p
 
 L'application écrit du JSON ECS sur `stdout`. Aucune image à construire, aucun parsing à écrire : les annotations `co.elastic.logs/json.*` du manifeste demandent le décodage JSON **pour ce pod uniquement**, sans toucher à la politique globale.
 
-> **⚠️ À vérifier sur votre plateforme** — Ces annotations ne sont prises en compte que si les « hints » d'autodiscover sont activés dans la configuration de l'agent. Si vos champs restent dans `message` au lieu d'être décomposés, c'est la première chose à vérifier — avant de conclure que vos annotations sont fausses. <!-- À VÉRIFIER : activation des hints d'autodiscover dans l'intégration Kubernetes en 9.5.5, et nom exact de l'option côté Fleet. -->
+> **⚠️ À vérifier sur votre plateforme** — Ces annotations ne sont prises en compte que si les « hints » d'autodiscover sont activés dans la configuration de l'agent. Si vos champs restent dans `message` au lieu d'être décomposés, c'est la première chose à vérifier — avant de conclure que vos annotations sont fausses. <!-- À VÉRIFIER : activation des hints d'autodiscover dans l'intégration Kubernetes en 9.5.6, et nom exact de l'option côté Fleet. -->
 
 ### 4.1 Les métadonnées, c'est-à-dire la valeur ajoutée
 

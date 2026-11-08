@@ -1,0 +1,13 @@
+{
+  "_nom": "burn-rate-tunnel-{{STUDENT_ID}}",
+  "_niveau": "1 — impact utilisateur, réveil justifié",
+  "_principe": "Le burn rate est la vitesse de consommation du budget d'erreur. Un burn rate de 1 consomme exactement le budget sur la fenêtre du SLO. Un burn rate de 14,4 le consomme en 2 % du temps : à ce rythme, 7 jours de budget partent en 2 h 20.",
+  "_pourquoi_deux_fenetres": "Une fenêtre LONGUE seule détecte tard. Une fenêtre COURTE seule déclenche sur le moindre micro-incident. On exige les DEUX vraies : la longue prouve que le problème est significatif, la courte qu'il est TOUJOURS en cours. C'est ce qui évite de réveiller quelqu'un pour un incident déjà terminé.",
+  "_fenetre_longue": { "duree": "1 heure", "seuil_burn_rate": 14.4 },
+  "_fenetre_courte": { "duree": "5 minutes", "seuil_burn_rate": 14.4 },
+  "_condition": "les deux règles actives simultanément",
+  "_esql_fenetre_longue": "FROM logs-kubernetes.container_logs-{{NAMESPACE}} | WHERE @timestamp > NOW() - 1 hours | WHERE shopflow.tier == \"web\" | WHERE url.path LIKE \"/api/cart*\" OR url.path LIKE \"/api/commande*\" | WHERE NOT url.path IN (\"/health\", \"/server-status\") | EVAL mauvaise = CASE(http.response.status_code >= 500, 1, 0) | STATS eligibles = COUNT(*), mauvaises = SUM(mauvaise) | EVAL taux_erreur = mauvaises * 1.0 / eligibles, burn_rate = ROUND((mauvaises * 1.0 / eligibles) / 0.005, 1) | WHERE eligibles >= 50 AND burn_rate > 14.4 | KEEP eligibles, mauvaises, burn_rate",
+  "_esql_fenetre_courte": "FROM logs-kubernetes.container_logs-{{NAMESPACE}} | WHERE @timestamp > NOW() - 5 minutes | WHERE shopflow.tier == \"web\" | WHERE url.path LIKE \"/api/cart*\" OR url.path LIKE \"/api/commande*\" | WHERE NOT url.path IN (\"/health\", \"/server-status\") | EVAL mauvaise = CASE(http.response.status_code >= 500, 1, 0) | STATS eligibles = COUNT(*), mauvaises = SUM(mauvaise) | EVAL burn_rate = ROUND((mauvaises * 1.0 / eligibles) / 0.005, 1) | WHERE eligibles >= 20 AND burn_rate > 14.4 | KEEP eligibles, mauvaises, burn_rate",
+  "_mise_en_oeuvre_sans_licence": "Les règles de burn rate NATIVES de Kibana relèvent d'une licence commerciale. Voie de repli, qui donne exactement les mêmes chiffres : la règle « fenêtre longue » écrit dans un index d'alertes via le connecteur Index (gratuit) ; la règle « fenêtre courte » lit cet index en plus de sa propre condition. Les deux conditions sont alors combinées sans fonctionnalité payante.",
+  "_garde_fou": "eligibles >= 50 et >= 20 : un ratio calculé sur trois requêtes n'a aucun sens."
+}

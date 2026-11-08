@@ -1,0 +1,118 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  00-configmaps.yaml — configuration des trois tiers ({{STUDENT_ID}})
+#
+#  Deux ConfigMaps :
+#    - shopflow-apache  : la configuration complète du frontal, y compris le
+#      journal JSON portant la durée (même stratégie qu'au chapitre 1) ;
+#    - shopflow-app     : les paramètres NON SECRETS du backend.
+#      Les identifiants de la base vont dans un Secret (10-secret-postgres.yaml).
+#
+#  Dans un conteneur, on ne journalise JAMAIS dans un fichier : on écrit sur
+#  la sortie standard et la sortie d'erreur, que le runtime capture et que le
+#  DaemonSet collecte. D'où /proc/self/fd/1 et /proc/self/fd/2 ci-dessous.
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: shopflow-apache
+  namespace: "{{NAMESPACE}}"
+  labels:
+    app.kubernetes.io/part-of: shopflow
+data:
+  httpd.conf: |
+    # Configuration minimale et complète du frontal ShopFlow.
+    ServerRoot "/usr/local/apache2"
+    Listen 8080
+    ServerName shopflow-web
+    PidFile /tmp/httpd.pid
+
+    # ─── Modules : uniquement ceux dont on a besoin ───
+    LoadModule mpm_event_module modules/mod_mpm_event.so
+    LoadModule unixd_module modules/mod_unixd.so
+    LoadModule authz_core_module modules/mod_authz_core.so
+    LoadModule authz_host_module modules/mod_authz_host.so
+    LoadModule log_config_module modules/mod_log_config.so
+    LoadModule setenvif_module modules/mod_setenvif.so
+    LoadModule mime_module modules/mod_mime.so
+    LoadModule dir_module modules/mod_dir.so
+    LoadModule alias_module modules/mod_alias.so
+    LoadModule headers_module modules/mod_headers.so
+    LoadModule unique_id_module modules/mod_unique_id.so
+    LoadModule status_module modules/mod_status.so
+    LoadModule proxy_module modules/mod_proxy.so
+    LoadModule proxy_http_module modules/mod_proxy_http.so
+
+    User daemon
+    Group daemon
+    DocumentRoot "/usr/local/apache2/htdocs"
+
+    <Directory "/usr/local/apache2/htdocs">
+        Options -Indexes +FollowSymLinks
+        AllowOverride None
+        Require all granted
+    </Directory>
+
+    # ─── Journal JSON : les noms de champs sont déjà en ECS ───
+    #  %D est en MICROSECONDES dans Apache httpd (en millisecondes dans
+    #  Tomcat : voir le pipeline de chaque tier).
+    LogFormat "{\
+    \"@timestamp\":\"%{%Y-%m-%dT%H:%M:%S}t.%{msec_frac}t%{%z}t\",\
+    \"source.address\":\"%a\",\
+    \"http.request.method\":\"%m\",\
+    \"url.original\":\"%U%q\",\
+    \"url.path\":\"%U\",\
+    \"http.response.status_code\":%>s,\
+    \"http.response.body.bytes\":%B,\
+    \"user_agent.original\":\"%{User-Agent}i\",\
+    \"shopflow.duration_us\":%D,\
+    \"shopflow.tier\":\"web\",\
+    \"shopflow.student\":\"{{STUDENT_ID}}\",\
+    \"shopflow.request_id\":\"%{UNIQUE_ID}e\"\
+    }" shopflow_json
+
+    # Sortie standard : capturée par le runtime, collectée par le DaemonSet.
+    CustomLog /proc/self/fd/1 shopflow_json
+    ErrorLog /proc/self/fd/2
+    LogLevel warn
+
+    # ─── Identifiant de corrélation transmis au backend ───
+    #  C'est lui qui permet de relier une ligne du frontal à la ligne
+    #  correspondante du backend, puis à la latence de la base.
+    RequestHeader set X-Request-Id "%{UNIQUE_ID}e"
+
+    # ─── mod_status, restreint à la boucle locale ───
+    <Location "/server-status">
+        SetHandler server-status
+        Require local
+    </Location>
+
+    # ─── Reverse proxy vers le backend Tomcat ───
+    ProxyPreserveHost On
+    ProxyTimeout 10
+    ProxyPass        /api/ http://shopflow-app:8080/{{APP_CONTEXT}}/api/
+    ProxyPassReverse /api/ http://shopflow-app:8080/{{APP_CONTEXT}}/api/
+
+    # Sonde locale : ne traverse PAS le backend, pour pouvoir distinguer
+    # « le frontal est vivant » de « la chaîne complète fonctionne ».
+    Alias /health /usr/local/apache2/htdocs/health.json
+  health.json: |
+    {"status":"UP","tier":"web","student":"{{STUDENT_ID}}"}
+  index.html: |
+    <!doctype html><title>ShopFlow</title>
+    <h1>ShopFlow - NovaCommerce</h1>
+    <p>Frontal Apache. API : <a href="/api/cart">/api/cart</a></p>
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: shopflow-app
+  namespace: "{{NAMESPACE}}"
+  labels:
+    app.kubernetes.io/part-of: shopflow
+data:
+  # Le backend joint la base par le NOM DU SERVICE Kubernetes : la résolution
+  # DNS interne fait le reste. Jamais une adresse IP de pod, qui change.
+  DB_HOST: "shopflow-db"
+  DB_PORT: "5432"
+  DB_NAME: "shopflow"
+  JAVA_OPTS_EXTRA: "-Xms{{HEAP_MB}}m -Xmx{{HEAP_MB}}m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ExitOnOutOfMemoryError"

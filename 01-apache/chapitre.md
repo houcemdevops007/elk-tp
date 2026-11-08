@@ -351,7 +351,7 @@ La commande de référence est celle affichée par **Fleet → Agents → Add ag
 sudo ./install-agent.sh '<votre-token-d-enrolement>'
 ```
 
-Ce qu'il fait, dans l'ordre : il vérifie la présence de la CA interne, il teste la connectivité vers `172.16.3.55:8220`, il télécharge l'agent **9.5.5**, puis il installe et enrôle avec la CA et deux étiquettes (`studentXX`, `tp-apache`).
+Ce qu'il fait, dans l'ordre : il vérifie la présence de la CA interne, il teste la connectivité vers `172.16.3.55:8220`, il télécharge l'agent **9.5.6**, puis il installe et enrôle avec la CA et deux étiquettes (`studentXX`, `tp-apache`).
 
 | Option | Rôle | Remarque |
 |---|---|---|
@@ -361,7 +361,7 @@ Ce qu'il fait, dans l'ordre : il vérifie la présence de la CA interne, il test
 | `--tag` | Étiquettes libres | Ce qui permet de retrouver votre agent parmi vingt |
 | `--insecure` | Désactive la validation TLS | **À éviter** : le symptôme disparaît, pas le problème |
 
-> **⚠️ Piège fréquent** — La version de l'agent doit être **identique ou inférieure** à celle du cluster, jamais supérieure. Installer un agent plus récent que la stack est une cause classique d'état `unhealthy` difficile à diagnostiquer. Ici, la stack est en 9.5.5 : l'agent est en 9.5.5. <!-- À VÉRIFIER : confirmer que l'artefact elastic-agent-9.5.5-linux-x86_64.tar.gz existe bien sur artifacts.elastic.co, et relever la version exacte dans Kibana → Stack Management. -->
+> **⚠️ Piège fréquent** — La version de l'agent doit être **identique ou inférieure** à celle du cluster, jamais supérieure. Installer un agent plus récent que la stack est une cause classique d'état `unhealthy` difficile à diagnostiquer. Ici, la stack est en 9.5.6 : l'agent est en 9.5.6. <!-- À VÉRIFIER : confirmer que l'artefact elastic-agent-9.5.6-linux-x86_64.tar.gz existe bien sur artifacts.elastic.co, et relever la version exacte dans Kibana → Stack Management. -->
 
 ### Les états d'un agent
 
@@ -557,7 +557,7 @@ Une alerte classique se déclenche quand une valeur dépasse un seuil. Celle-ci 
 
 > **À retenir** — Cette règle est la plus souvent absente et la plus importante. Sans elle, une panne de votre chaîne d'observabilité vous rend aveugle **silencieusement** : les dashboards deviennent calmes, les autres alertes se taisent, et vous en concluez que tout va bien.
 
-<!-- À VÉRIFIER : disponibilité du type de règle « Elasticsearch query » en variante ES|QL sur la 9.5.5 et sur la licence de la plateforme, et comportement de la fenêtre temporelle (si Kibana applique sa propre fenêtre, retirer la ligne `WHERE @timestamp > NOW() - N minutes` des requêtes fournies). Les connecteurs Slack, courriel et webhook relèvent d'une licence commerciale ; le connecteur Index est gratuit. -->
+<!-- À VÉRIFIER : disponibilité du type de règle « Elasticsearch query » en variante ES|QL sur la 9.5.6 et sur la licence de la plateforme, et comportement de la fenêtre temporelle (si Kibana applique sa propre fenêtre, retirer la ligne `WHERE @timestamp > NOW() - N minutes` des requêtes fournies). Les connecteurs Slack, courriel et webhook relèvent d'une licence commerciale ; le connecteur Index est gratuit. -->
 
 **✅ Vérification de l'étape 7** — pour chaque règle, vous avez mesuré deux délais : le **délai de détection** (début du problème → déclenchement) et le **délai d'extinction** (retour à la normale → état `recovered`). Et l'index d'alertes contient un nombre de documents cohérent avec le nombre d'incidents réels.
 

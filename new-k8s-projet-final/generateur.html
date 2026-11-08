@@ -1,0 +1,655 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Générateur — Chapitre 4 : projet final, ShopFlow trois tiers</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#ffffff; --ink:#1b1f24; --muted:#5a6472; --line:#dfe3e8;
+    --accent:#1f6feb; --accent-ink:#ffffff; --ok:#0f7b4f; --warn:#8a5a00; --err:#b42318;
+    --code-bg:#f2f4f7; --code-ink:#1b1f24; --tok-com:#6a737d; --tok-str:#0a7b34;
+    --tok-key:#9a3bbd; --tok-num:#b4530a; --tok-tag:#1f6feb;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#14171c; --card:#1b1f25; --ink:#e7ebf0; --muted:#9aa5b1; --line:#2c333c;
+      --accent:#4c8dff; --accent-ink:#0c1016; --ok:#4ad295; --warn:#e0b341; --err:#ff7b72;
+      --code-bg:#11151a; --code-ink:#e7ebf0; --tok-com:#8b949e; --tok-str:#7ee2a8;
+      --tok-key:#d2a8ff; --tok-num:#ffa657; --tok-tag:#79c0ff;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:1040px;margin:0 auto;padding:18px 16px 56px}
+  h1{font-size:1.4rem;margin:.2em 0 .1em}
+  h2{font-size:1.1rem;margin:1.6em 0 .6em;padding-bottom:.3em;border-bottom:1px solid var(--line)}
+  p.sub{color:var(--muted);margin:.2em 0 1.2em}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:0 0 16px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px 16px}
+  label{display:block;font-weight:600;font-size:.86rem;margin:0 0 .25em}
+  .req{color:var(--err)}
+  input,select{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:7px;
+    background:var(--card);color:var(--ink);font:inherit;font-size:.92rem}
+  input:focus,select:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+  input[aria-invalid="true"]{border-color:var(--err);background:rgba(180,35,24,.06)}
+  .help{color:var(--muted);font-size:.78rem;margin:.3em 0 0}
+  .err{color:var(--err);font-size:.78rem;margin:.3em 0 0;font-weight:600}
+  .err:empty,.help:empty{display:none}
+  table.cst{width:100%;border-collapse:collapse;font-size:.86rem}
+  table.cst th,table.cst td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  table.cst th{color:var(--muted);font-weight:600;white-space:nowrap}
+  table.cst td code{font-size:.92em}
+  .actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px}
+  button{font:inherit;font-weight:600;border-radius:7px;border:1px solid var(--line);
+    background:var(--card);color:var(--ink);padding:8px 14px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+  button.sm{padding:4px 10px;font-size:.8rem;font-weight:600}
+  .msg{font-size:.86rem;font-weight:600}
+  .msg.ok{color:var(--ok)} .msg.bad{color:var(--err)}
+  .blk{border:1px solid var(--line);border-radius:9px;margin:0 0 14px;overflow:hidden;background:var(--card)}
+  .blk>header{display:flex;gap:8px;align-items:center;justify-content:space-between;
+    padding:8px 10px;background:var(--code-bg);border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .blk h3{margin:0;font-size:.9rem;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .blk .path{color:var(--muted);font-size:.76rem;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .blk .btns{display:flex;gap:6px}
+  pre{margin:0;padding:12px;overflow-x:auto;background:var(--code-bg);color:var(--code-ink);
+    font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;tab-size:2}
+  .tc{color:var(--tok-com);font-style:italic} .ts{color:var(--tok-str)}
+  .tk{color:var(--tok-key);font-weight:600} .tn{color:var(--tok-num)} .tg{color:var(--tok-tag)}
+  .note{border-left:4px solid var(--warn);background:rgba(224,179,65,.10);
+    border-radius:0 8px 8px 0;padding:10px 12px;font-size:.86rem;margin:0 0 16px}
+  .note.sec{border-left-color:var(--err);background:rgba(180,35,24,.08)}
+  .hidden{display:none}
+  .rec{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.82rem;
+    color:var(--muted);word-break:break-all}
+  footer{color:var(--muted);font-size:.8rem;margin-top:26px;border-top:1px solid var(--line);padding-top:10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 id="t-titre">Générateur — Chapitre 4 : projet final, ShopFlow trois tiers</h1>
+  <p class="sub" id="t-intro"></p>
+
+  <div class="note sec">
+    <strong>Confidentialité.</strong> Cette page fonctionne entièrement dans votre navigateur :
+    aucun appel réseau, aucune donnée enregistrée, aucun cookie. Le token d'enrôlement que vous
+    saisissez n'est jamais pré-rempli et disparaît dès que vous fermez l'onglet.
+  </div>
+
+  <h2>1. Valeurs fixes de la plateforme EFI</h2>
+  <div class="card">
+    <table class="cst"><tbody id="t-cst"></tbody></table>
+  </div>
+
+  <h2>2. Paramètres de votre VM</h2>
+  <div class="card">
+    <form id="t-form" novalidate><div class="grid" id="t-fields"></div></form>
+    <div class="actions">
+      <button type="button" class="primary" id="t-gen">Générer</button>
+      <button type="button" id="t-reset">Réinitialiser</button>
+      <span class="msg" id="t-msg"></span>
+    </div>
+  </div>
+
+  <div id="t-out" class="hidden">
+    <h2>3. Fichiers et commandes générés</h2>
+    <div class="card" id="t-recap"></div>
+    <div id="t-blocks"></div>
+  </div>
+
+  <footer>
+    Khlifi Houcem — Formateur DevSecOps et Cloud · Plateforme EFILearn ·
+    Elastic Observability (version condensée). Générateur autonome, sans dépendance externe.
+  </footer>
+</div>
+
+<script>
+"use strict";
+const PAYLOAD = {
+ "chapitre": "Générateur — Chapitre 4 : projet final, ShopFlow trois tiers",
+ "intro": "Renseignez les paramètres de votre cluster : la page produit les manifestes complets des trois tiers, les scripts d'incident et les requêtes de SLO, avec vos valeurs. Les modèles sont exactement ceux du dossier 04-projet-final/ du tutoriel.",
+ "constants": [
+  {
+   "label": "Version de la stack",
+   "value": "9.5.6",
+   "note": "La version de l'Elastic Agent doit etre identique a celle du cluster."
+  },
+  {
+   "label": "Cluster Elasticsearch",
+   "value": "efi-elk-training",
+   "note": "elk-es0 172.16.3.50 / elk-es1 172.16.3.51 / elk-es2 172.16.3.52 (master + data, :9200 / :9300)"
+  },
+  {
+   "label": "API Elasticsearch",
+   "value": "https://172.16.3.50:9200"
+  },
+  {
+   "label": "Kibana (elk-kibana0)",
+   "value": "https://172.16.3.53:5601",
+   "note": "Acces candidat par le reverse proxy Nginx : https://elk.efi-academy.com/tp/"
+  },
+  {
+   "label": "Fleet Server (elk-fleet0)",
+   "value": "https://172.16.3.55:8220",
+   "note": "Plan de controle : enrolement, politiques, etat des agents."
+  },
+  {
+   "label": "Sauvegardes SLM",
+   "value": "http://172.16.50.10:9000",
+   "note": "Snapshots quotidiens a 01:30 UTC, retention 14 jours. Operation formateur."
+  }
+ ],
+ "fixed": {
+  "ES_VERSION": "9.5.6",
+  "ES_CLUSTER": "efi-elk-training",
+  "ES_URL": "https://172.16.3.50:9200",
+  "ES_URL1": "https://172.16.3.51:9200",
+  "ES_URL2": "https://172.16.3.52:9200",
+  "ES_IP0": "172.16.3.50",
+  "ES_IP1": "172.16.3.51",
+  "ES_IP2": "172.16.3.52",
+  "KIBANA_URL": "https://172.16.3.53:5601",
+  "KIBANA_PUBLIC": "https://elk.efi-academy.com/tp/",
+  "KIBANA_IP": "172.16.3.53",
+  "FLEET_URL": "https://172.16.3.55:8220",
+  "FLEET_IP": "172.16.3.55",
+  "LOGSTASH_BEATS": "172.16.3.54:5044",
+  "LOGSTASH_HTTP": "https://172.16.3.54:8443",
+  "LOGSTASH_IP": "172.16.3.54",
+  "MINIO_URL": "http://172.16.50.10:9000",
+  "EFI_NET": "172.16.0.0/16"
+ },
+ "fields": [
+  {
+   "key": "NUM",
+   "label": "Numéro étudiant",
+   "type": "select",
+   "required": true,
+   "options": [
+    "01",
+    "02",
+    "03",
+    "04",
+    "05",
+    "06",
+    "07",
+    "08",
+    "09",
+    "10",
+    "11",
+    "12",
+    "13",
+    "14",
+    "15",
+    "16",
+    "17",
+    "18",
+    "19",
+    "20"
+   ],
+   "default": "01",
+   "help": "Détermine votre namespace Kubernetes et le namespace de vos data streams."
+  },
+  {
+   "key": "KUBECONFIG",
+   "label": "Chemin du kubeconfig",
+   "type": "text",
+   "required": true,
+   "default": "~/.kube/config",
+   "pattern": "^[~/][^\\s]*[^/\\s]$",
+   "error": "Chemin absolu (ou commençant par ~) attendu.",
+   "help": "Le même qu'au chapitre 3 : la copie de /etc/kubernetes/admin.conf dans votre dossier personnel."
+  },
+  {
+   "key": "WORKER_NAME",
+   "label": "Nom du nœud worker",
+   "type": "text",
+   "required": true,
+   "placeholder": "ex. kube-worker-g34-m1",
+   "pattern": "^[a-z0-9]([a-z0-9.-]{0,61}[a-z0-9])?$",
+   "error": "Nom de nœud invalide.",
+   "help": "Le master porte la taint control-plane : vos trois tiers tournent tous sur le worker, et le volume de la base est sur SON disque. Valeur exacte de kubectl get nodes."
+  },
+  {
+   "key": "DEMO_IMAGE",
+   "label": "Image utilitaire",
+   "type": "text",
+   "required": true,
+   "default": "busybox:1.36",
+   "pattern": "^[a-z0-9][a-z0-9._/-]*:[A-Za-z0-9._-]+$",
+   "error": "Format attendu : image:tag.",
+   "help": "La même qu'au chapitre 3. Sert uniquement au Job qui prépare le répertoire du volume sur le worker."
+  },
+  {
+   "key": "NODE_PORT",
+   "label": "NodePort du frontal",
+   "type": "text",
+   "required": true,
+   "default": "30080",
+   "pattern": "^(3[0-2][0-9]{3})$",
+   "error": "Un NodePort doit être compris entre 30000 et 32767.",
+   "help": "Point d'entrée depuis votre VM : http://localhost:<port>/. Choisissez une valeur libre."
+  },
+  {
+   "key": "APP_CONTEXT",
+   "label": "Contexte de l'application",
+   "type": "text",
+   "required": true,
+   "default": "shopflow-api",
+   "pattern": "^[a-zA-Z0-9_-]+$",
+   "error": "Caractères alphanumériques, tiret et souligné.",
+   "help": "Le même nom de WAR qu'au chapitre 2 : le reverse proxy du frontal en dépend."
+  },
+  {
+   "key": "HEAP_MB",
+   "label": "Heap de la JVM du backend, en Mo",
+   "type": "text",
+   "required": true,
+   "default": "384",
+   "pattern": "^[0-9]{3,5}$",
+   "error": "Valeur en mégaoctets attendue.",
+   "help": "DOIT rester nettement sous la limite mémoire du conteneur (768 Mi dans le manifeste) : -Xmx ne borne que la heap. Viser 50 à 70 % de la limite."
+  },
+  {
+   "key": "TOMCAT_IMAGE_TAG",
+   "label": "Tag de l'image Tomcat",
+   "type": "text",
+   "required": true,
+   "default": "10.1-jre21-temurin",
+   "pattern": "^[A-Za-z0-9._-]+$",
+   "error": "Tag d'image invalide.",
+   "help": "Tomcat 10 et 11 utilisent jakarta.servlet ; Tomcat 9 utilise javax. Le script build-war.sh du chapitre 2 s'adapte, mais le WAR doit correspondre à l'image choisie ici."
+  },
+  {
+   "key": "HTTPD_IMAGE_TAG",
+   "label": "Tag de l'image Apache httpd",
+   "type": "text",
+   "required": true,
+   "default": "2.4",
+   "pattern": "^[A-Za-z0-9._-]+$",
+   "error": "Tag d'image invalide.",
+   "help": "La configuration fournie charge explicitement ses modules : elle est indépendante de la variante de l'image."
+  },
+  {
+   "key": "PG_VERSION",
+   "label": "Version de PostgreSQL",
+   "type": "text",
+   "required": true,
+   "default": "16",
+   "pattern": "^[0-9]{1,2}(\\.[0-9]{1,2})?$",
+   "error": "Version majeure attendue, par exemple 16.",
+   "help": "Sert de tag d'image et de libellé de version dans vos dashboards."
+  },
+  {
+   "key": "STORAGE_CLASS",
+   "label": "StorageClass du volume de la base",
+   "type": "text",
+   "required": true,
+   "default": "shopflow-local",
+   "pattern": "^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$",
+   "error": "Nom de StorageClass invalide.",
+   "help": "VÉRIFIEZ D'ABORD : kubectl get storageclass. Une installation kubeadm n'en fournit AUCUNE — appliquez alors manifests/05-stockage.yaml, qui crée celle-ci. Si votre cluster en a déjà une, mettez son nom ici et n'appliquez pas 05-stockage.yaml."
+  },
+  {
+   "key": "PG_PASSWORD",
+   "label": "Mot de passe PostgreSQL",
+   "type": "password",
+   "required": true,
+   "placeholder": "choisissez un mot de passe de TP",
+   "help": "SECRET, jamais pré-rempli. Il n'est utilisé que dans votre lab. Le fichier de Secret produit ne doit JAMAIS être versionné : un Secret Kubernetes est encodé, pas chiffré."
+  },
+  {
+   "key": "CA_PATH",
+   "label": "Autorité de certification interne",
+   "type": "text",
+   "required": true,
+   "default": "/etc/efi/pki/ca.crt",
+   "pattern": "^/[^\\s]*[^/\\s]$",
+   "error": "Chemin absolu attendu.",
+   "help": "Utilisée par les scripts qui appellent Elasticsearch."
+  },
+  {
+   "key": "ES_API_KEY",
+   "label": "Clé d'API Elasticsearch (facultatif)",
+   "type": "password",
+   "required": false,
+   "placeholder": "pour les requêtes de contrôle",
+   "help": "Peut rester vide et être passée par la variable ES_API_KEY."
+  }
+ ],
+ "derived": {
+  "STUDENT_ID": "student{{NUM}}",
+  "NAMESPACE": "student{{NUM}}",
+  "POLICY": "efi-student{{NUM}}-apache",
+  "POLICY_K8S": "efi-student{{NUM}}-k8s",
+  "SPACE": "student{{NUM}}"
+ },
+ "recap": [
+  "STUDENT_ID",
+  "NAMESPACE",
+  "WORKER_NAME",
+  "NODE_PORT",
+  "APP_CONTEXT",
+  "HEAP_MB",
+  "TOMCAT_IMAGE_TAG",
+  "HTTPD_IMAGE_TAG",
+  "PG_VERSION",
+  "STORAGE_CLASS",
+  "ES_VERSION",
+  "KIBANA_PUBLIC"
+ ],
+ "commands": [
+  {
+   "name": "build-configmap-war.sh",
+   "title": "Place le WAR du chapitre 2 dans un ConfigMap",
+   "content": "#!/usr/bin/env bash\n# ─────────────────────────────────────────────────────────────────────────────\n#  build-configmap-war.sh — place le WAR du chapitre 2 dans un ConfigMap\n#\n#  Pourquoi : déployer un WAR dans Kubernetes demande normalement de\n#  construire une image et de la publier dans un registre. Le WAR de TP pèse\n#  quelques kilo-octets : un ConfigMap suffit, et cela évite une dépendance\n#  à un registre pendant la formation.\n#\n#  LIMITE À CONNAÎTRE : un ConfigMap est plafonné à environ 1 Mio. Cette\n#  astuce ne vaut QUE pour un artefact minuscule. Pour une application\n#  réelle : une image, un registre, et un tag immuable.\n#\n#  Usage :  ./build-configmap-war.sh [chemin/vers/{{APP_CONTEXT}}.war]\n# ─────────────────────────────────────────────────────────────────────────────\nset -euo pipefail\nexport KUBECONFIG=\"{{KUBECONFIG}}\"\n\nWAR=\"${1:-../../02-tomcat/app/{{APP_CONTEXT}}.war}\"\nNS=\"{{NAMESPACE}}\"\n\n[ -f \"$WAR\" ] || { echo \"[ERREUR] WAR introuvable : $WAR\"; echo \"         construisez-le : cd ../../02-tomcat/app && ./build-war.sh\"; exit 1; }\n\nTAILLE=$(stat -c %s \"$WAR\")\necho \"[i] WAR : $WAR ($(( TAILLE / 1024 )) Kio)\"\nif [ \"$TAILLE\" -gt 900000 ]; then\n  echo \"[ERREUR] trop volumineux pour un ConfigMap (limite ~1 Mio).\" >&2\n  exit 1\nfi\n\nkubectl -n \"$NS\" create configmap shopflow-war \\\n  --from-file=\"{{APP_CONTEXT}}.war=${WAR}\" \\\n  --dry-run=client -o yaml | kubectl apply -f -\n\nkubectl -n \"$NS\" get configmap shopflow-war \\\n  -o jsonpath='{.binaryData}' | head -c 80 ; echo \" ...\"\necho \"[OK] ConfigMap shopflow-war créé dans $NS.\"\n",
+   "lang": "bash"
+  },
+  {
+   "name": "charge.sh",
+   "title": "Trafic nominal sur les trois tiers — à laisser tourner",
+   "content": "#!/usr/bin/env bash\n# ─────────────────────────────────────────────────────────────────────────────\n#  charge.sh — trafic nominal sur ShopFlow trois tiers ({{STUDENT_ID}})\n#\n#  Fait vivre le parcours complet : frontal -> backend -> base. À laisser\n#  tourner en continu pendant tout le projet : sans trafic, aucun SLI n'a\n#  de sens, et un incident ne produit aucun signal.\n#\n#  Usage :  ./charge.sh [duree_s] [req_par_seconde]\n# ─────────────────────────────────────────────────────────────────────────────\nset -uo pipefail\n\nBASE=\"http://localhost:{{NODE_PORT}}\"\nDUREE=\"${1:-600}\"\nRPS=\"${2:-4}\"\nFIN=$(( $(date +%s) + DUREE ))\nPAUSE=$(python3 -c \"print(1.0/max(1,$RPS))\")\n\necho \"== charge sur $BASE pendant ${DUREE}s, ~${RPS} req/s ==\"\nOK=0 ; KO=0\nwhile [ \"$(date +%s)\" -lt \"$FIN\" ]; do\n  for ROUTE in / /api/cart /api/produit/42 /api/db /api/commande; do\n    CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 \"${BASE}${ROUTE}\")\n    if [ \"$CODE\" -ge 500 ] 2>/dev/null; then\n      KO=$(( KO + 1 ))\n    else\n      OK=$(( OK + 1 ))\n    fi\n  done\n  sleep \"$PAUSE\"\ndone\necho \"== terminé : ${OK} succès, ${KO} erreurs serveur ==\"\n",
+   "lang": "bash"
+  },
+  {
+   "name": "01-db-indisponible.sh",
+   "title": "Incident 1 — base de données indisponible",
+   "content": "#!/usr/bin/env bash\n# ─────────────────────────────────────────────────────────────────────────────\n#  INCIDENT 1 — La base de données devient indisponible ({{STUDENT_ID}})\n#\n#  À LANCER PAR LE FORMATEUR, ou par le candidat en auto-évaluation APRÈS\n#  avoir rendu sa copie : la nature de l'incident ne doit pas être connue\n#  à l'avance.\n#\n#  Mécanisme : le StatefulSet de la base est réduit à zéro réplica. Les\n#  données ne sont PAS détruites (le volume persiste) : l'incident est\n#  réversible.\n#\n#  Usage :  ./01-db-indisponible.sh [duree_s]\n# ─────────────────────────────────────────────────────────────────────────────\nset -uo pipefail\nexport KUBECONFIG=\"{{KUBECONFIG}}\"\nNS=\"{{NAMESPACE}}\"\nDUREE=\"${1:-600}\"\n\necho \"== $(date -u '+%Y-%m-%dT%H:%M:%SZ') · début de l'incident 1 ==\"\nkubectl -n \"$NS\" scale statefulset/shopflow-db --replicas=0\nkubectl -n \"$NS\" get pods -l app.kubernetes.io/component=database\n\necho \"== génération de trafic pendant ${DUREE}s (dans un autre terminal) ==\"\ncat <<'FIN'\n  ./charge.sh 600 &\nCe que le candidat doit observer, dans cet ordre :\n  1. frontal   : /health répond toujours 200 (il ne traverse pas le backend)\n  2. frontal   : /api/* renvoie des 503, la latence CHUTE (échec rapide)\n  3. backend   : log ERROR « base de donnees injoignable »\n  4. backend   : le pod reste Ready — son /health ne teste pas la base\n  5. base      : 0 pod, event « Scaled down », PAS d'erreur applicative\n  6. SLO       : le budget d'erreur du tunnel de commande s'effondre\nLa question de diagnostic : pourquoi la latence BAISSE-t-elle pendant une\npanne ? Parce qu'un échec rapide est plus rapide qu'un succès. Une alerte\nconstruite sur la seule latence ne verrait donc RIEN.\nFIN\n\nsleep \"$DUREE\"\n\necho \"== $(date -u '+%Y-%m-%dT%H:%M:%SZ') · rétablissement ==\"\nkubectl -n \"$NS\" scale statefulset/shopflow-db --replicas=1\nkubectl -n \"$NS\" rollout status statefulset/shopflow-db --timeout=180s\ncurl -s \"http://localhost:{{NODE_PORT}}/api/db\" ; echo\necho \"== incident 1 terminé ==\"\n",
+   "lang": "bash"
+  },
+  {
+   "name": "02-backend-lent.sh",
+   "title": "Incident 2 — backend lent, sans erreur",
+   "content": "#!/usr/bin/env bash\n# ─────────────────────────────────────────────────────────────────────────────\n#  INCIDENT 2 — Le backend devient lent, sans aucune erreur ({{STUDENT_ID}})\n#\n#  Deux mécanismes combinables :\n#    A) la requête non bornée du fil rouge (/api/cart?scenario=degrade) :\n#       142 000 articles, ~4 s, ~180 Ko, code 200 ;\n#    B) le throttling CPU : limite abaissée à 50 millicœurs.\n#\n#  Usage :  ./02-backend-lent.sh [A|B|AB] [duree_s]\n# ─────────────────────────────────────────────────────────────────────────────\nset -uo pipefail\nexport KUBECONFIG=\"{{KUBECONFIG}}\"\nNS=\"{{NAMESPACE}}\"\nMODE=\"${1:-AB}\"\nDUREE=\"${2:-600}\"\nBASE=\"http://localhost:{{NODE_PORT}}\"\n\necho \"== $(date -u '+%Y-%m-%dT%H:%M:%SZ') · début de l'incident 2 (mode $MODE) ==\"\n\ncase \"$MODE\" in\n  *A*) curl -s -o /dev/null \"${BASE}/api/cart?scenario=degrade\"\n       echo \"  [A] requête non bornée activée\" ;;\nesac\ncase \"$MODE\" in\n  *B*) kubectl -n \"$NS\" set resources deploy/shopflow-app --limits=cpu=50m,memory=768Mi\n       kubectl -n \"$NS\" rollout status deploy/shopflow-app --timeout=180s\n       echo \"  [B] limite CPU abaissée à 50m : throttling\" ;;\nesac\n\ncat <<'FIN'\nCe que le candidat doit observer :\n  1. P95 et P99 du frontal qui montent, P50 qui bouge moins\n  2. AUCUN code d'erreur au début... puis des 504 quand la durée dépasse\n     ProxyTimeout (10 s) : la lenteur du backend devient une ERREUR du frontal\n  3. taille des réponses en forte hausse (mode A)\n  4. cpu.usage.limit.pct en plateau près de 1 (mode B)\n  5. AUCUN redémarrage, pods Ready : tous les indicateurs de disponibilité\n     restent au vert\n  6. SLO de latence violé AVANT le SLO de disponibilité\nFIN\n\nsleep \"$DUREE\"\n\necho \"== $(date -u '+%Y-%m-%dT%H:%M:%SZ') · rétablissement ==\"\ncurl -s -o /dev/null \"${BASE}/api/cart?scenario=normal\" || true\nkubectl -n \"$NS\" set resources deploy/shopflow-app --limits=cpu=1,memory=768Mi\nkubectl -n \"$NS\" rollout status deploy/shopflow-app --timeout=180s\necho \"== incident 2 terminé ==\"\n",
+   "lang": "bash"
+  },
+  {
+   "name": "03-cascade-5xx.sh",
+   "title": "Incident 3 — cascade de 5xx",
+   "content": "#!/usr/bin/env bash\n# ─────────────────────────────────────────────────────────────────────────────\n#  INCIDENT 3 — Cascade de 5xx ({{STUDENT_ID}})\n#\n#  Mécanisme : le backend est mis en échec de démarrage (limite mémoire\n#  incompatible avec la heap de la JVM -> OOMKilled en boucle). Le frontal\n#  n'a plus de backend joignable et renvoie des 502 et 503.\n#\n#  C'est l'incident le plus riche : trois tiers, trois symptômes différents,\n#  une seule cause. Et il démontre la règle de lecture des codes :\n#    502 = le backend a répondu n'importe quoi ou a coupé\n#    503 = plus aucune ressource disponible pour traiter\n#    504 = le backend est vivant mais trop lent\n#\n#  Usage :  ./03-cascade-5xx.sh [duree_s]\n# ─────────────────────────────────────────────────────────────────────────────\nset -uo pipefail\nexport KUBECONFIG=\"{{KUBECONFIG}}\"\nNS=\"{{NAMESPACE}}\"\nDUREE=\"${1:-600}\"\n\necho \"== $(date -u '+%Y-%m-%dT%H:%M:%SZ') · début de l'incident 3 ==\"\n#  La heap demandée ({{HEAP_MB}} Mo) dépasse désormais la limite du\n#  conteneur : la JVM est tuée par le noyau dès qu'elle la réclame.\nkubectl -n \"$NS\" set resources deploy/shopflow-app --limits=memory=160Mi,cpu=1\nkubectl -n \"$NS\" get pods -l app.kubernetes.io/component=backend -w &\nWATCH=$!\nsleep 90\nkill \"$WATCH\" 2>/dev/null || true\n\ncat <<'FIN'\nCe que le candidat doit observer, tier par tier :\n  frontal : 502 puis 503 ; error.log avec AH01114 « failed to make\n            connection to backend » ; latence courte (échec rapide)\n  backend : pods en boucle de redémarrage, last_terminated_reason =\n            OOMKilled, AUCUNE OutOfMemoryError dans les logs Java\n            (le noyau tue avant que la JVM ne puisse l'écrire)\n  base    : parfaitement saine - c'est la preuve que la cause est au\n            deuxième tier\nLa cause racine à formuler en une phrase : la limite mémoire du conteneur\n(160 Mi) est inférieure à la mémoire totale réclamée par la JVM (heap de\n{{HEAP_MB}} Mo + metaspace + piles de threads), donc le conteneur est tué\nà chaque démarrage.\nFIN\n\nsleep \"$DUREE\"\n\necho \"== $(date -u '+%Y-%m-%dT%H:%M:%SZ') · rétablissement ==\"\nkubectl -n \"$NS\" set resources deploy/shopflow-app --limits=memory=768Mi,cpu=1\nkubectl -n \"$NS\" rollout status deploy/shopflow-app --timeout=240s\ncurl -s \"http://localhost:{{NODE_PORT}}/api/commande\" ; echo\necho \"== incident 3 terminé ==\"\n",
+   "lang": "bash"
+  }
+ ],
+ "files": [
+  {
+   "name": "00-configmaps.yaml",
+   "path": "configuration des trois tiers",
+   "content": "# ─────────────────────────────────────────────────────────────────────────────\n#  00-configmaps.yaml — configuration des trois tiers ({{STUDENT_ID}})\n#\n#  Deux ConfigMaps :\n#    - shopflow-apache  : la configuration complète du frontal, y compris le\n#      journal JSON portant la durée (même stratégie qu'au chapitre 1) ;\n#    - shopflow-app     : les paramètres NON SECRETS du backend.\n#      Les identifiants de la base vont dans un Secret (10-secret-postgres.yaml).\n#\n#  Dans un conteneur, on ne journalise JAMAIS dans un fichier : on écrit sur\n#  la sortie standard et la sortie d'erreur, que le runtime capture et que le\n#  DaemonSet collecte. D'où /proc/self/fd/1 et /proc/self/fd/2 ci-dessous.\n# ─────────────────────────────────────────────────────────────────────────────\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: shopflow-apache\n  namespace: \"{{NAMESPACE}}\"\n  labels:\n    app.kubernetes.io/part-of: shopflow\ndata:\n  httpd.conf: |\n    # Configuration minimale et complète du frontal ShopFlow.\n    ServerRoot \"/usr/local/apache2\"\n    Listen 8080\n    ServerName shopflow-web\n    PidFile /tmp/httpd.pid\n\n    # ─── Modules : uniquement ceux dont on a besoin ───\n    LoadModule mpm_event_module modules/mod_mpm_event.so\n    LoadModule unixd_module modules/mod_unixd.so\n    LoadModule authz_core_module modules/mod_authz_core.so\n    LoadModule authz_host_module modules/mod_authz_host.so\n    LoadModule log_config_module modules/mod_log_config.so\n    LoadModule setenvif_module modules/mod_setenvif.so\n    LoadModule mime_module modules/mod_mime.so\n    LoadModule dir_module modules/mod_dir.so\n    LoadModule alias_module modules/mod_alias.so\n    LoadModule headers_module modules/mod_headers.so\n    LoadModule unique_id_module modules/mod_unique_id.so\n    LoadModule status_module modules/mod_status.so\n    LoadModule proxy_module modules/mod_proxy.so\n    LoadModule proxy_http_module modules/mod_proxy_http.so\n\n    User daemon\n    Group daemon\n    DocumentRoot \"/usr/local/apache2/htdocs\"\n\n    <Directory \"/usr/local/apache2/htdocs\">\n        Options -Indexes +FollowSymLinks\n        AllowOverride None\n        Require all granted\n    </Directory>\n\n    # ─── Journal JSON : les noms de champs sont déjà en ECS ───\n    #  %D est en MICROSECONDES dans Apache httpd (en millisecondes dans\n    #  Tomcat : voir le pipeline de chaque tier).\n    LogFormat \"{\\\n    \\\"@timestamp\\\":\\\"%{%Y-%m-%dT%H:%M:%S}t.%{msec_frac}t%{%z}t\\\",\\\n    \\\"source.address\\\":\\\"%a\\\",\\\n    \\\"http.request.method\\\":\\\"%m\\\",\\\n    \\\"url.original\\\":\\\"%U%q\\\",\\\n    \\\"url.path\\\":\\\"%U\\\",\\\n    \\\"http.response.status_code\\\":%>s,\\\n    \\\"http.response.body.bytes\\\":%B,\\\n    \\\"user_agent.original\\\":\\\"%{User-Agent}i\\\",\\\n    \\\"shopflow.duration_us\\\":%D,\\\n    \\\"shopflow.tier\\\":\\\"web\\\",\\\n    \\\"shopflow.student\\\":\\\"{{STUDENT_ID}}\\\",\\\n    \\\"shopflow.request_id\\\":\\\"%{UNIQUE_ID}e\\\"\\\n    }\" shopflow_json\n\n    # Sortie standard : capturée par le runtime, collectée par le DaemonSet.\n    CustomLog /proc/self/fd/1 shopflow_json\n    ErrorLog /proc/self/fd/2\n    LogLevel warn\n\n    # ─── Identifiant de corrélation transmis au backend ───\n    #  C'est lui qui permet de relier une ligne du frontal à la ligne\n    #  correspondante du backend, puis à la latence de la base.\n    RequestHeader set X-Request-Id \"%{UNIQUE_ID}e\"\n\n    # ─── mod_status, restreint à la boucle locale ───\n    <Location \"/server-status\">\n        SetHandler server-status\n        Require local\n    </Location>\n\n    # ─── Reverse proxy vers le backend Tomcat ───\n    ProxyPreserveHost On\n    ProxyTimeout 10\n    ProxyPass        /api/ http://shopflow-app:8080/{{APP_CONTEXT}}/api/\n    ProxyPassReverse /api/ http://shopflow-app:8080/{{APP_CONTEXT}}/api/\n\n    # Sonde locale : ne traverse PAS le backend, pour pouvoir distinguer\n    # « le frontal est vivant » de « la chaîne complète fonctionne ».\n    Alias /health /usr/local/apache2/htdocs/health.json\n  health.json: |\n    {\"status\":\"UP\",\"tier\":\"web\",\"student\":\"{{STUDENT_ID}}\"}\n  index.html: |\n    <!doctype html><title>ShopFlow</title>\n    <h1>ShopFlow - NovaCommerce</h1>\n    <p>Frontal Apache. API : <a href=\"/api/cart\">/api/cart</a></p>\n---\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: shopflow-app\n  namespace: \"{{NAMESPACE}}\"\n  labels:\n    app.kubernetes.io/part-of: shopflow\ndata:\n  # Le backend joint la base par le NOM DU SERVICE Kubernetes : la résolution\n  # DNS interne fait le reste. Jamais une adresse IP de pod, qui change.\n  DB_HOST: \"shopflow-db\"\n  DB_PORT: \"5432\"\n  DB_NAME: \"shopflow\"\n  JAVA_OPTS_EXTRA: \"-Xms{{HEAP_MB}}m -Xmx{{HEAP_MB}}m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ExitOnOutOfMemoryError\"\n",
+   "lang": "yaml"
+  },
+  {
+   "name": "05-stockage.yaml",
+   "path": "StorageClass + PersistentVolume local — SEULEMENT si kubectl get storageclass ne renvoie rien",
+   "content": "# ─────────────────────────────────────────────────────────────────────────────\n#  05-stockage.yaml — de quoi donner un volume à la base ({{STUDENT_ID}})\n#\n#  POURQUOI CE FICHIER EXISTE : une installation kubeadm ne fournit AUCUNE\n#  StorageClass. Un cluster managé (EKS, GKE, OpenShift) en a toujours une\n#  par défaut, k3s embarque « local-path » — kubeadm, rien. Le PVC du\n#  StatefulSet resterait donc Pending indéfiniment, avec l'event\n#  « no persistent volumes available for this claim and no storage class\n#  is set », et la base ne démarrerait jamais.\n#\n#  Vérifiez d'abord — si votre cluster a déjà une StorageClass, N'APPLIQUEZ\n#  PAS ce fichier : renseignez simplement son nom dans STORAGE_CLASS.\n#      kubectl get storageclass\n#\n#  CE QU'ON FAIT ICI, et pourquoi c'est volontairement rudimentaire :\n#  un PersistentVolume STATIQUE, sur un répertoire du worker. Pas de\n#  provisionneur à déployer, aucune image à télécharger, rien à atteindre\n#  sur Internet. En échange, vous voyez la liaison PV <-> PVC que les\n#  clusters managés vous cachent — et c'est précisément ce qu'il faut avoir\n#  vu une fois pour savoir lire un PVC qui ne se lie pas.\n#\n#  CE QUE CE N'EST PAS : une solution de production. Les données vivent sur\n#  le disque d'UN nœud. Si le worker disparaît, elles disparaissent avec\n#  lui. En production on utilise un provisionneur dynamique adossé à un\n#  stockage réseau (Ceph, NFS, un CSI du cloud). Ne copiez pas ce fichier\n#  ailleurs que dans ce TP.\n# ─────────────────────────────────────────────────────────────────────────────\napiVersion: storage.k8s.io/v1\nkind: StorageClass\nmetadata:\n  name: \"{{STORAGE_CLASS}}\"\n# « no-provisioner » = personne ne crée les volumes automatiquement : c'est\n# l'administrateur qui les déclare à l'avance. C'est le cas ici.\nprovisioner: kubernetes.io/no-provisioner\n# WaitForFirstConsumer : ne pas lier le volume AVANT de savoir sur quel nœud\n# le pod sera placé. Sans cela, le scheduler pourrait lier un volume du\n# worker à un pod destiné au master, et le pod resterait bloqué.\nvolumeBindingMode: WaitForFirstConsumer\nreclaimPolicy: Retain\n---\napiVersion: v1\nkind: PersistentVolume\nmetadata:\n  name: \"pv-{{STUDENT_ID}}-shopflow-db\"\n  labels:\n    app.kubernetes.io/part-of: shopflow\n    efi.formation/student: \"{{STUDENT_ID}}\"\nspec:\n  capacity:\n    storage: 1Gi\n  accessModes: [\"ReadWriteOnce\"]\n  persistentVolumeReclaimPolicy: Retain\n  storageClassName: \"{{STORAGE_CLASS}}\"\n  # claimRef : ce volume est RÉSERVÉ au PVC du StatefulSet. Sur un cluster\n  # partagé entre 20 candidats, sans cette réservation, le PVC d'un autre\n  # candidat pourrait se lier à VOTRE volume — et il n'y aurait aucun\n  # message d'erreur, juste des données qui n'arrivent pas où on croit.\n  # Le nom du PVC est imposé par le StatefulSet : <volume>-<statefulset>-<ordinal>.\n  claimRef:\n    namespace: \"{{NAMESPACE}}\"\n    name: donnees-shopflow-db-0\n  local:\n    path: /srv/shopflow/{{STUDENT_ID}}/db\n  nodeAffinity:\n    required:\n      nodeSelectorTerms:\n        - matchExpressions:\n            - key: kubernetes.io/hostname\n              operator: In\n              values: [\"{{WORKER_NAME}}\"]\n---\n# Le répertoire doit exister sur le worker AVANT que la base démarre : un\n# volume « local » ne crée pas son propre répertoire, contrairement à un\n# hostPath. Ce Job le crée une fois, puis se termine.\n#\n# Équivalent manuel, si vous avez un accès SSH au worker :\n#   ssh {{WORKER_NAME}} 'sudo mkdir -p /srv/shopflow/{{STUDENT_ID}}/db && \\\n#       sudo chown 999:999 /srv/shopflow/{{STUDENT_ID}}/db && \\\n#       sudo chmod 700 /srv/shopflow/{{STUDENT_ID}}/db'\n#\n# 999:999 = l'utilisateur postgres dans l'image officielle. Un répertoire\n# appartenant à root ferait échouer initdb sur « could not create directory ».\napiVersion: batch/v1\nkind: Job\nmetadata:\n  name: preparer-volume-db\n  namespace: \"{{NAMESPACE}}\"\n  labels:\n    app.kubernetes.io/part-of: shopflow\nspec:\n  backoffLimit: 2\n  ttlSecondsAfterFinished: 600\n  template:\n    metadata:\n      labels:\n        app.kubernetes.io/name: preparer-volume-db\n    spec:\n      restartPolicy: OnFailure\n      # nodeSelector et non nodeName : si le nom du worker est faux, on veut\n      # un event FailedScheduling explicite — pas un pod Pending sans raison.\n      nodeSelector:\n        kubernetes.io/hostname: \"{{WORKER_NAME}}\"\n      containers:\n        - name: preparer\n          image: \"{{DEMO_IMAGE}}\"\n          command:\n            - /bin/sh\n            - -c\n            - |\n              set -e\n              # 999:999 = l'utilisateur postgres de l'image officielle.\n              # mkdir/chown/chmod plutot que « install -o » : busybox tenterait\n              # de resoudre 999 comme un NOM d'utilisateur et echouerait.\n              mkdir -p /hote/shopflow/{{STUDENT_ID}}/db\n              chown 999:999 /hote/shopflow/{{STUDENT_ID}}/db\n              chmod 700 /hote/shopflow/{{STUDENT_ID}}/db\n              echo \"repertoire pret : /srv/shopflow/{{STUDENT_ID}}/db\"\n              ls -ld /hote/shopflow/{{STUDENT_ID}}/db\n          securityContext:\n            # Écrire sur le système de fichiers du nœud demande root. C'est\n            # une opération d'administration, faite UNE fois, dans un Job\n            # qui se termine — pas un privilège permanent.\n            runAsUser: 0\n          volumeMounts:\n            - name: hote\n              mountPath: /hote\n          resources:\n            requests:\n              cpu: 50m\n              memory: 32Mi\n            limits:\n              cpu: 100m\n              memory: 64Mi\n      volumes:\n        - name: hote\n          hostPath:\n            path: /srv\n            type: DirectoryOrCreate\n",
+   "lang": "yaml"
+  },
+  {
+   "name": "10-secret-postgres.yaml",
+   "path": "Secret — À NE JAMAIS VERSIONNER",
+   "content": "# ─────────────────────────────────────────────────────────────────────────────\n#  10-secret-postgres.yaml — identifiants de la base ({{STUDENT_ID}})\n#\n#  stringData permet d'écrire la valeur en clair DANS CE FICHIER, que\n#  Kubernetes encodera. C'est pratique en TP, et c'est exactement ce qu'il\n#  ne faut pas versionner : un Secret Kubernetes n'est pas chiffré, il est\n#  seulement encodé en base64.\n#\n#  En production : SealedSecrets, External Secrets Operator, ou le\n#  gestionnaire de secrets du fournisseur. Et chiffrement au repos activé\n#  sur etcd.\n#\n#  Ne commitez JAMAIS ce fichier rempli.\n# ─────────────────────────────────────────────────────────────────────────────\napiVersion: v1\nkind: Secret\nmetadata:\n  name: shopflow-db\n  namespace: \"{{NAMESPACE}}\"\n  labels:\n    app.kubernetes.io/part-of: shopflow\ntype: Opaque\nstringData:\n  POSTGRES_USER: \"shopflow\"\n  POSTGRES_PASSWORD: \"{{PG_PASSWORD}}\"\n  POSTGRES_DB: \"shopflow\"\n",
+   "lang": "yaml"
+  },
+  {
+   "name": "20-postgres.yaml",
+   "path": "tier 3 — PostgreSQL : StatefulSet + PVC + Service",
+   "content": "# ─────────────────────────────────────────────────────────────────────────────\n#  20-postgres.yaml — troisième tier : PostgreSQL ({{STUDENT_ID}})\n#\n#  Un StatefulSet, et non un Deployment : une base de données a une identité\n#  et un volume persistants. Une installation kubeadm ne fournit AUCUNE\n#  StorageClass : voir 05-stockage.yaml, à appliquer avant ce fichier si\n#  « kubectl get storageclass » ne renvoie rien.\n#\n#  La journalisation est configurée pour sortir sur stderr (donc collectée\n#  par le DaemonSet) et pour tracer les requêtes LENTES : c'est ce qui\n#  permettra, pendant l'incident, de dire si la base est lente ou si c'est\n#  le backend qui l'interroge mal.\n# ─────────────────────────────────────────────────────────────────────────────\napiVersion: v1\nkind: Service\nmetadata:\n  name: shopflow-db\n  namespace: \"{{NAMESPACE}}\"\n  labels:\n    app.kubernetes.io/name: shopflow-db\n    app.kubernetes.io/component: database\n    app.kubernetes.io/part-of: shopflow\nspec:\n  selector:\n    app.kubernetes.io/name: shopflow-db\n  ports:\n    - name: postgres\n      port: 5432\n      targetPort: 5432\n---\napiVersion: apps/v1\nkind: StatefulSet\nmetadata:\n  name: shopflow-db\n  namespace: \"{{NAMESPACE}}\"\n  labels:\n    app.kubernetes.io/name: shopflow-db\n    app.kubernetes.io/component: database\n    app.kubernetes.io/part-of: shopflow\n    app.kubernetes.io/version: \"{{PG_VERSION}}\"\nspec:\n  serviceName: shopflow-db\n  replicas: 1\n  selector:\n    matchLabels:\n      app.kubernetes.io/name: shopflow-db\n  template:\n    metadata:\n      labels:\n        app.kubernetes.io/name: shopflow-db\n        app.kubernetes.io/component: database\n        app.kubernetes.io/part-of: shopflow\n        app.kubernetes.io/version: \"{{PG_VERSION}}\"\n      annotations:\n        co.elastic.logs/enabled: \"true\"\n    spec:\n      securityContext:\n        fsGroup: 999\n      containers:\n        - name: postgres\n          image: \"postgres:{{PG_VERSION}}\"\n          args:\n            # Journalisation : sur stderr, donc collectée comme n'importe\n            # quel log de conteneur. logging_collector resterait dans un\n            # fichier du conteneur, invisible pour le DaemonSet.\n            - \"-c\"\n            - \"logging_collector=off\"\n            - \"-c\"\n            - \"log_destination=stderr\"\n            - \"-c\"\n            - \"log_min_duration_statement=200\"   # trace les requêtes > 200 ms\n            - \"-c\"\n            - \"log_connections=on\"\n            - \"-c\"\n            - \"log_disconnections=on\"\n            - \"-c\"\n            - \"log_line_prefix=%m [%p] %q%u@%d \"\n          ports:\n            - name: postgres\n              containerPort: 5432\n          envFrom:\n            - secretRef:\n                name: shopflow-db\n          env:\n            - name: PGDATA\n              # Sous-répertoire obligatoire : initdb refuse un répertoire\n              # non vide, et un volume monté contient toujours lost+found.\n              value: /var/lib/postgresql/data/pgdata\n          volumeMounts:\n            - name: donnees\n              mountPath: /var/lib/postgresql/data\n          resources:\n            requests:\n              cpu: 100m\n              memory: 256Mi\n            limits:\n              cpu: 500m\n              memory: 512Mi\n          readinessProbe:\n            exec:\n              command: [\"pg_isready\", \"-U\", \"shopflow\", \"-d\", \"shopflow\"]\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          livenessProbe:\n            exec:\n              command: [\"pg_isready\", \"-U\", \"shopflow\", \"-d\", \"shopflow\"]\n            initialDelaySeconds: 30\n            periodSeconds: 20\n            failureThreshold: 3\n  volumeClaimTemplates:\n    - metadata:\n        name: donnees\n      spec:\n        accessModes: [\"ReadWriteOnce\"]\n        storageClassName: \"{{STORAGE_CLASS}}\"\n        resources:\n          requests:\n            storage: 1Gi\n",
+   "lang": "yaml"
+  },
+  {
+   "name": "30-tomcat.yaml",
+   "path": "tier 2 — backend Tomcat : Deployment + Service",
+   "content": "# ─────────────────────────────────────────────────────────────────────────────\n#  30-tomcat.yaml — deuxième tier : backend Tomcat ({{STUDENT_ID}})\n#\n#  Le WAR n'est pas dans une image : il est monté depuis un ConfigMap\n#  construit par build-configmap-war.sh. Cela évite d'avoir à construire et\n#  à publier une image dans un registre, ce qui n'est pas le sujet du TP.\n#\n#  La journalisation va sur la sortie standard (catalina.out du conteneur\n#  officiel y écrit déjà) : le DaemonSet collecte, l'application ne sait\n#  rien de la plateforme d'observabilité.\n# ─────────────────────────────────────────────────────────────────────────────\napiVersion: v1\nkind: Service\nmetadata:\n  name: shopflow-app\n  namespace: \"{{NAMESPACE}}\"\n  labels:\n    app.kubernetes.io/name: shopflow-app\n    app.kubernetes.io/component: backend\n    app.kubernetes.io/part-of: shopflow\nspec:\n  selector:\n    app.kubernetes.io/name: shopflow-app\n  ports:\n    - name: http\n      port: 8080\n      targetPort: 8080\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: shopflow-app\n  namespace: \"{{NAMESPACE}}\"\n  labels:\n    app.kubernetes.io/name: shopflow-app\n    app.kubernetes.io/component: backend\n    app.kubernetes.io/part-of: shopflow\n    app.kubernetes.io/version: \"2.4.1\"\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app.kubernetes.io/name: shopflow-app\n  template:\n    metadata:\n      labels:\n        app.kubernetes.io/name: shopflow-app\n        app.kubernetes.io/component: backend\n        app.kubernetes.io/part-of: shopflow\n        app.kubernetes.io/version: \"2.4.1\"\n      annotations:\n        co.elastic.logs/enabled: \"true\"\n        # Les lignes JSON émises par l'application sont décodées ; les\n        # lignes de démarrage de Tomcat, qui ne sont pas du JSON, restent\n        # dans le champ message. add_error_key permet de les repérer.\n        co.elastic.logs/json.keys_under_root: \"true\"\n        co.elastic.logs/json.add_error_key: \"true\"\n        co.elastic.logs/json.overwrite_keys: \"true\"\n    spec:\n      containers:\n        - name: tomcat\n          image: \"tomcat:{{TOMCAT_IMAGE_TAG}}\"\n          ports:\n            - name: http\n              containerPort: 8080\n          env:\n            - name: CATALINA_OPTS\n              valueFrom:\n                configMapKeyRef:\n                  name: shopflow-app\n                  key: JAVA_OPTS_EXTRA\n            - name: DB_HOST\n              valueFrom:\n                configMapKeyRef:\n                  name: shopflow-app\n                  key: DB_HOST\n            - name: DB_PORT\n              valueFrom:\n                configMapKeyRef:\n                  name: shopflow-app\n                  key: DB_PORT\n            # Les identifiants viennent du SECRET, jamais du ConfigMap.\n            - name: DB_USER\n              valueFrom:\n                secretKeyRef:\n                  name: shopflow-db\n                  key: POSTGRES_USER\n            - name: DB_PASSWORD\n              valueFrom:\n                secretKeyRef:\n                  name: shopflow-db\n                  key: POSTGRES_PASSWORD\n          volumeMounts:\n            # subPath : on monte UN fichier dans un répertoire qui reste\n            # inscriptible, pour que Tomcat puisse déployer l'archive.\n            - name: war\n              mountPath: /usr/local/tomcat/webapps/{{APP_CONTEXT}}.war\n              subPath: \"{{APP_CONTEXT}}.war\"\n              readOnly: true\n          resources:\n            requests:\n              cpu: 200m\n              memory: 384Mi\n            limits:\n              # ATTENTION : la heap ({{HEAP_MB}} Mo) doit rester NETTEMENT\n              # sous cette limite. -Xmx ne borne que la heap ; le conteneur\n              # est tué sur la mémoire TOTALE du processus (heap + metaspace\n              # + code cache + piles de threads). Viser 50 à 70 % de la limite.\n              cpu: \"1\"\n              memory: 768Mi\n          startupProbe:\n            # Tomcat met plusieurs dizaines de secondes à déployer : une\n            # liveness probe seule le tuerait en boucle (chapitre 3, panne 3).\n            httpGet:\n              path: /{{APP_CONTEXT}}/health\n              port: http\n            periodSeconds: 5\n            failureThreshold: 24\n          readinessProbe:\n            httpGet:\n              path: /{{APP_CONTEXT}}/health\n              port: http\n            periodSeconds: 10\n          livenessProbe:\n            httpGet:\n              path: /{{APP_CONTEXT}}/health\n              port: http\n            periodSeconds: 20\n            failureThreshold: 3\n      volumes:\n        - name: war\n          configMap:\n            name: shopflow-war\n",
+   "lang": "yaml"
+  },
+  {
+   "name": "40-apache.yaml",
+   "path": "tier 1 — frontal Apache : Deployment + Service NodePort",
+   "content": "# ─────────────────────────────────────────────────────────────────────────────\n#  40-apache.yaml — premier tier : frontal Apache ({{STUDENT_ID}})\n#\n#  Le Service est de type NodePort pour que vous puissiez l'atteindre depuis\n#  votre VM. Sur un cluster réel, on passerait par un Ingress.\n# ─────────────────────────────────────────────────────────────────────────────\napiVersion: v1\nkind: Service\nmetadata:\n  name: shopflow-web\n  namespace: \"{{NAMESPACE}}\"\n  labels:\n    app.kubernetes.io/name: shopflow-web\n    app.kubernetes.io/component: frontend\n    app.kubernetes.io/part-of: shopflow\nspec:\n  type: NodePort\n  selector:\n    app.kubernetes.io/name: shopflow-web\n  ports:\n    - name: http\n      port: 8080\n      targetPort: 8080\n      nodePort: {{NODE_PORT}}\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: shopflow-web\n  namespace: \"{{NAMESPACE}}\"\n  labels:\n    app.kubernetes.io/name: shopflow-web\n    app.kubernetes.io/component: frontend\n    app.kubernetes.io/part-of: shopflow\n    app.kubernetes.io/version: \"2.4.1\"\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app.kubernetes.io/name: shopflow-web\n  template:\n    metadata:\n      labels:\n        app.kubernetes.io/name: shopflow-web\n        app.kubernetes.io/component: frontend\n        app.kubernetes.io/part-of: shopflow\n        app.kubernetes.io/version: \"2.4.1\"\n      annotations:\n        co.elastic.logs/enabled: \"true\"\n        # Le journal d'accès est déjà du JSON : on le décode.\n        co.elastic.logs/json.keys_under_root: \"true\"\n        co.elastic.logs/json.add_error_key: \"true\"\n        co.elastic.logs/json.overwrite_keys: \"true\"\n    spec:\n      containers:\n        - name: httpd\n          image: \"httpd:{{HTTPD_IMAGE_TAG}}\"\n          ports:\n            - name: http\n              containerPort: 8080\n          volumeMounts:\n            - name: conf\n              mountPath: /usr/local/apache2/conf/httpd.conf\n              subPath: httpd.conf\n              readOnly: true\n            - name: conf\n              mountPath: /usr/local/apache2/htdocs/health.json\n              subPath: health.json\n              readOnly: true\n            - name: conf\n              mountPath: /usr/local/apache2/htdocs/index.html\n              subPath: index.html\n              readOnly: true\n          resources:\n            requests:\n              cpu: 50m\n              memory: 64Mi\n            limits:\n              cpu: 500m\n              memory: 256Mi\n          readinessProbe:\n            httpGet:\n              # /health répond LOCALEMENT, sans traverser le backend : on\n              # peut ainsi distinguer « le frontal est vivant » de « la\n              # chaîne complète fonctionne ». Si la readiness du frontal\n              # dépendait du backend, une panne de base retirerait TOUT le\n              # frontal du Service, et vous n'auriez plus aucune réponse HTTP\n              # à observer — donc plus aucun signal.\n              path: /health\n              port: http\n            initialDelaySeconds: 5\n            periodSeconds: 10\n          livenessProbe:\n            httpGet:\n              path: /health\n              port: http\n            initialDelaySeconds: 15\n            periodSeconds: 20\n      volumes:\n        - name: conf\n          configMap:\n            name: shopflow-apache\n",
+   "lang": "yaml"
+  },
+  {
+   "name": "slo.esql",
+   "path": "requêtes ES|QL des trois SLO + contrôle de couverture",
+   "content": "# ═════════════════════════════════════════════════════════════════════════════\n#  SLO DE SHOPFLOW — {{STUDENT_ID}}\n#\n#  Trois SLO seulement, mais entièrement définis. Un SLO dont on ne sait pas\n#  dire quels événements sont ÉLIGIBLES et lesquels sont BONS n'est pas un\n#  SLO : c'est un chiffre.\n#\n#  À exécuter dans Kibana -> Dev Tools -> Console (onglet ES|QL) ou dans\n#  Discover en mode ES|QL. Chaque requête est AUTONOME.\n#\n#  Rappels d'unité : event.duration est en NANOSECONDES.\n#                    1 s = 1 000 000 000 ns.\n# ═════════════════════════════════════════════════════════════════════════════\n\n\n# ─────────────────────────────────────────────────────────────────────────────\n#  SLO 1 — DISPONIBILITÉ DU TUNNEL DE COMMANDE\n#\n#  Objectif        : 99,5 % sur 7 jours\n#  Événements éligibles : les requêtes du frontal vers /api/cart et\n#                    /api/commande, hors sondes de supervision\n#  Événements bons : code de statut < 500\n#\n#  Décisions assumées, et pourquoi :\n#   - les 4xx ne comptent PAS comme des échecs : une erreur de client ou un\n#     scan externe n'est pas une défaillance de notre service ;\n#   - /health et /server-status sont exclus du NUMÉRATEUR comme du\n#     DÉNOMINATEUR : une sonde interrogée toutes les 10 secondes ferait\n#     paraître le taux d'erreur artificiellement excellent ;\n#   - le point de mesure est le FRONTAL, parce que c'est ce que l'utilisateur\n#     subit : une erreur du backend rattrapée par le frontal n'est pas un\n#     échec pour le client.\n# ─────────────────────────────────────────────────────────────────────────────\nFROM logs-kubernetes.container_logs-{{NAMESPACE}}\n| WHERE @timestamp > NOW() - 7 days\n| WHERE shopflow.tier == \"web\"\n| WHERE url.path LIKE \"/api/cart*\" OR url.path LIKE \"/api/commande*\"\n| WHERE NOT url.path IN (\"/health\", \"/server-status\")\n| EVAL bonne = CASE(http.response.status_code < 500, 1, 0)\n| STATS eligibles = COUNT(*), bonnes = SUM(bonne)\n| EVAL sli_pct = ROUND(bonnes * 100.0 / eligibles, 4),\n       mauvaises = eligibles - bonnes,\n       budget_total = ROUND(eligibles * 0.005, 0)\n| EVAL budget_restant = budget_total - mauvaises,\n       budget_consomme_pct = ROUND(mauvaises * 100.0 / budget_total, 1)\n| KEEP eligibles, bonnes, mauvaises, sli_pct, budget_total, budget_restant, budget_consomme_pct\n\n\n# ─────────────────────────────────────────────────────────────────────────────\n#  SLO 2 — LATENCE DE L'API\n#\n#  Objectif        : 95 % des requêtes /api/ servies en moins de 1 seconde,\n#                    sur 7 jours\n#  Événements éligibles : requêtes /api/ du frontal AYANT UNE DURÉE\n#  Événements bons : durée < 1 s ET code < 500\n#\n#  Pourquoi un RATIO de requêtes rapides, et non un percentile :\n#  un percentile ne se compose pas et ne se budgète pas. « 95 % des requêtes\n#  sous 1 s » se convertit directement en budget d'erreur ; « P95 < 1 s » ne\n#  se convertit en rien.\n#\n#  Pourquoi compter aussi les erreurs comme « mauvaises » : une requête qui\n#  échoue en 30 ms est rapide, et pourtant inutilisable. Un SLO de latence\n#  qui ignore les erreurs s'améliore quand le service tombe.\n# ─────────────────────────────────────────────────────────────────────────────\nFROM logs-kubernetes.container_logs-{{NAMESPACE}}\n| WHERE @timestamp > NOW() - 7 days\n| WHERE shopflow.tier == \"web\"\n| WHERE url.path LIKE \"/api/*\"\n| WHERE NOT url.path IN (\"/health\", \"/server-status\")\n| WHERE event.duration IS NOT NULL\n| EVAL bonne = CASE(event.duration < 1000000000 AND http.response.status_code < 500, 1, 0)\n| STATS eligibles = COUNT(*), bonnes = SUM(bonne)\n| EVAL sli_pct = ROUND(bonnes * 100.0 / eligibles, 4),\n       mauvaises = eligibles - bonnes,\n       budget_total = ROUND(eligibles * 0.05, 0)\n| EVAL budget_consomme_pct = ROUND(mauvaises * 100.0 / budget_total, 1)\n| KEEP eligibles, bonnes, mauvaises, sli_pct, budget_total, budget_consomme_pct\n\n\n# ─────────────────────────────────────────────────────────────────────────────\n#  CONTRÔLE QUALITÉ OBLIGATOIRE — la COUVERTURE du SLO de latence\n#\n#  Si une part importante des requêtes n'a pas de champ de durée et que vous\n#  les excluez des éligibles, votre SLI ne porte que sur une fraction du\n#  trafic et peut être très éloigné de la réalité.\n#  Un SLI dont on ne mesure pas la couverture n'est pas fiable.\n#  Seuil d'acceptation du projet : moins de 1 % de documents sans durée.\n# ─────────────────────────────────────────────────────────────────────────────\nFROM logs-kubernetes.container_logs-{{NAMESPACE}}\n| WHERE @timestamp > NOW() - 7 days\n| WHERE shopflow.tier == \"web\"\n| WHERE url.path LIKE \"/api/*\"\n| STATS total = COUNT(*), sans_duree = COUNT(*) WHERE event.duration IS NULL\n| EVAL couverture_pct = ROUND((total - sans_duree) * 100.0 / total, 2)\n| KEEP total, sans_duree, couverture_pct\n\n\n# ─────────────────────────────────────────────────────────────────────────────\n#  SLO 3 — DISPONIBILITÉ DE LA BASE, VUE PAR LE BACKEND\n#\n#  Objectif        : 99,9 % sur 7 jours\n#  Événements éligibles : les appels /api/db du backend\n#  Événements bons : la base a répondu (code 200)\n#\n#  Pourquoi mesurer la base DEPUIS LE BACKEND et non depuis la base :\n#  ce qui compte n'est pas que PostgreSQL tourne, c'est que le backend\n#  arrive à s'y connecter. Réseau, DNS, pool de connexions et saturation\n#  sont dans le chemin — et une base « UP » injoignable est hors service.\n# ─────────────────────────────────────────────────────────────────────────────\nFROM logs-kubernetes.container_logs-{{NAMESPACE}}\n| WHERE @timestamp > NOW() - 7 days\n| WHERE url.path LIKE \"/api/db*\"\n| EVAL bonne = CASE(http.response.status_code == 200, 1, 0)\n| STATS eligibles = COUNT(*), bonnes = SUM(bonne)\n| EVAL sli_pct = ROUND(bonnes * 100.0 / eligibles, 4),\n       budget_consomme_pct = ROUND((eligibles - bonnes) * 100.0 / (eligibles * 0.001), 1)\n| KEEP eligibles, bonnes, sli_pct, budget_consomme_pct\n\n\n# ─────────────────────────────────────────────────────────────────────────────\n#  SLI JOUR PAR JOUR — pour voir QUAND le budget a été consommé\n#\n#  Un budget consommé à 80 % ne dit pas la même chose s'il l'a été\n#  régulièrement ou en une seule panne de vingt minutes. La deuxième\n#  situation est préférable : elle a une cause, donc une correction.\n# ─────────────────────────────────────────────────────────────────────────────\nFROM logs-kubernetes.container_logs-{{NAMESPACE}}\n| WHERE @timestamp > NOW() - 7 days\n| WHERE shopflow.tier == \"web\"\n| WHERE url.path LIKE \"/api/*\"\n| WHERE NOT url.path IN (\"/health\", \"/server-status\")\n| EVAL jour = DATE_TRUNC(1 day, @timestamp)\n| EVAL mauvaise = CASE(http.response.status_code >= 500, 1, 0)\n| STATS eligibles = COUNT(*), mauvaises = SUM(mauvaise) BY jour\n| EVAL sli_pct = ROUND((eligibles - mauvaises) * 100.0 / eligibles, 3)\n| SORT jour ASC\n\n\n# ─────────────────────────────────────────────────────────────────────────────\n#  VUE DE BOUT EN BOUT — les trois tiers sur une même ligne de temps\n#\n#  C'est la requête qui permet de dire OÙ est le problème : si les erreurs\n#  apparaissent au même instant sur les trois tiers, la cause est en aval ;\n#  si elles n'apparaissent que sur le frontal, la cause est le frontal.\n# ─────────────────────────────────────────────────────────────────────────────\nFROM logs-kubernetes.container_logs-{{NAMESPACE}}\n| WHERE @timestamp > NOW() - 1 hours\n| EVAL tier = CASE(\n    kubernetes.labels.app_kubernetes_io/component == \"frontend\", \"1-web\",\n    kubernetes.labels.app_kubernetes_io/component == \"backend\", \"2-app\",\n    kubernetes.labels.app_kubernetes_io/component == \"database\", \"3-db\",\n    \"autre\")\n| EVAL minute = DATE_TRUNC(1 minute, @timestamp)\n| EVAL erreur = CASE(http.response.status_code >= 500 OR log.level == \"ERROR\", 1, 0)\n| STATS evenements = COUNT(*), erreurs = SUM(erreur) BY minute, tier\n| SORT minute DESC, tier ASC\n| LIMIT 100\n",
+   "lang": "sql"
+  },
+  {
+   "name": "01-slo-burn-rate.json",
+   "path": "Règle d'alerte — burn rate à double fenêtre",
+   "content": "{\n  \"_nom\": \"burn-rate-tunnel-{{STUDENT_ID}}\",\n  \"_niveau\": \"1 — impact utilisateur, réveil justifié\",\n  \"_principe\": \"Le burn rate est la vitesse de consommation du budget d'erreur. Un burn rate de 1 consomme exactement le budget sur la fenêtre du SLO. Un burn rate de 14,4 le consomme en 2 % du temps : à ce rythme, 7 jours de budget partent en 2 h 20.\",\n  \"_pourquoi_deux_fenetres\": \"Une fenêtre LONGUE seule détecte tard. Une fenêtre COURTE seule déclenche sur le moindre micro-incident. On exige les DEUX vraies : la longue prouve que le problème est significatif, la courte qu'il est TOUJOURS en cours. C'est ce qui évite de réveiller quelqu'un pour un incident déjà terminé.\",\n  \"_fenetre_longue\": { \"duree\": \"1 heure\", \"seuil_burn_rate\": 14.4 },\n  \"_fenetre_courte\": { \"duree\": \"5 minutes\", \"seuil_burn_rate\": 14.4 },\n  \"_condition\": \"les deux règles actives simultanément\",\n  \"_esql_fenetre_longue\": \"FROM logs-kubernetes.container_logs-{{NAMESPACE}} | WHERE @timestamp > NOW() - 1 hours | WHERE shopflow.tier == \\\"web\\\" | WHERE url.path LIKE \\\"/api/cart*\\\" OR url.path LIKE \\\"/api/commande*\\\" | WHERE NOT url.path IN (\\\"/health\\\", \\\"/server-status\\\") | EVAL mauvaise = CASE(http.response.status_code >= 500, 1, 0) | STATS eligibles = COUNT(*), mauvaises = SUM(mauvaise) | EVAL taux_erreur = mauvaises * 1.0 / eligibles, burn_rate = ROUND((mauvaises * 1.0 / eligibles) / 0.005, 1) | WHERE eligibles >= 50 AND burn_rate > 14.4 | KEEP eligibles, mauvaises, burn_rate\",\n  \"_esql_fenetre_courte\": \"FROM logs-kubernetes.container_logs-{{NAMESPACE}} | WHERE @timestamp > NOW() - 5 minutes | WHERE shopflow.tier == \\\"web\\\" | WHERE url.path LIKE \\\"/api/cart*\\\" OR url.path LIKE \\\"/api/commande*\\\" | WHERE NOT url.path IN (\\\"/health\\\", \\\"/server-status\\\") | EVAL mauvaise = CASE(http.response.status_code >= 500, 1, 0) | STATS eligibles = COUNT(*), mauvaises = SUM(mauvaise) | EVAL burn_rate = ROUND((mauvaises * 1.0 / eligibles) / 0.005, 1) | WHERE eligibles >= 20 AND burn_rate > 14.4 | KEEP eligibles, mauvaises, burn_rate\",\n  \"_mise_en_oeuvre_sans_licence\": \"Les règles de burn rate NATIVES de Kibana relèvent d'une licence commerciale. Voie de repli, qui donne exactement les mêmes chiffres : la règle « fenêtre longue » écrit dans un index d'alertes via le connecteur Index (gratuit) ; la règle « fenêtre courte » lit cet index en plus de sa propre condition. Les deux conditions sont alors combinées sans fonctionnalité payante.\",\n  \"_garde_fou\": \"eligibles >= 50 et >= 20 : un ratio calculé sur trois requêtes n'a aucun sens.\"\n}\n",
+   "lang": "json"
+  },
+  {
+   "name": "02-cascade-5xx.json",
+   "path": "Règle d'alerte — cascade de 5xx par tier",
+   "content": "{\n  \"_nom\": \"cascade-5xx-{{STUDENT_ID}}\",\n  \"_niveau\": \"1 — impact utilisateur\",\n  \"_fenetre\": \"5 minutes\",\n  \"_intervalle\": \"1 minute\",\n  \"_but\": \"Détecter une panne qui traverse les tiers, et surtout IDENTIFIER le tier d'origine dans le message de l'alerte. Une alerte qui dit « il y a des 5xx » oblige à tout rouvrir ; une alerte qui dit « 5xx sur le frontal, backend en erreur, base saine » a déjà fait la moitié du diagnostic.\",\n  \"esql\": \"FROM logs-kubernetes.container_logs-{{NAMESPACE}} | WHERE @timestamp > NOW() - 5 minutes | EVAL tier = CASE(kubernetes.labels.app_kubernetes_io/component == \\\"frontend\\\", \\\"1-web\\\", kubernetes.labels.app_kubernetes_io/component == \\\"backend\\\", \\\"2-app\\\", kubernetes.labels.app_kubernetes_io/component == \\\"database\\\", \\\"3-db\\\", \\\"autre\\\") | EVAL erreur = CASE(http.response.status_code >= 500 OR log.level == \\\"ERROR\\\", 1, 0) | STATS evenements = COUNT(*), erreurs = SUM(erreur) BY tier | EVAL taux_pct = ROUND(erreurs * 100.0 / evenements, 1) | WHERE evenements >= 20 AND taux_pct > 10 | KEEP tier, evenements, erreurs, taux_pct | SORT tier ASC\",\n  \"_lecture_du_resultat\": {\n    \"les trois tiers en erreur\": \"la cause est le plus EN AVAL (la base) : les tiers amont ne font que propager\",\n    \"frontal et backend seulement\": \"la base est saine : chercher dans le backend (mémoire, dépendance, configuration)\",\n    \"frontal seulement\": \"le backend répond : chercher dans le frontal (proxy, timeout, configuration)\",\n    \"502 sur le frontal\": \"le backend a coupé ou répondu n'importe quoi\",\n    \"503 sur le frontal\": \"plus aucune ressource pour traiter - ou plus aucun backend dans le Service\",\n    \"504 sur le frontal\": \"le backend est VIVANT mais trop lent : c'est un incident de latence, pas de disponibilité\"\n  }\n}\n",
+   "lang": "json"
+  },
+  {
+   "name": "03-db-injoignable.json",
+   "path": "Règle d'alerte — base injoignable",
+   "content": "{\n  \"_nom\": \"db-injoignable-{{STUDENT_ID}}\",\n  \"_niveau\": \"1 — impact utilisateur\",\n  \"_fenetre\": \"5 minutes\",\n  \"_intervalle\": \"1 minute\",\n  \"_condition\": \"plus de 3 échecs de connexion à la base\",\n  \"_pourquoi_mesurer_depuis_le_backend\": \"Ce qui compte n'est pas que PostgreSQL tourne, c'est que le backend arrive à s'y connecter. Réseau, DNS, pool de connexions, saturation : tout cela est dans le chemin. Une base « UP » mais injoignable est hors service, et une alerte posée sur le pod PostgreSQL ne le verrait pas.\",\n  \"esql\": \"FROM logs-kubernetes.container_logs-{{NAMESPACE}} | WHERE @timestamp > NOW() - 5 minutes | WHERE log.level == \\\"ERROR\\\" | WHERE message LIKE \\\"*base de donnees injoignable*\\\" OR message LIKE \\\"*commande refusee*\\\" | STATS echecs = COUNT(*) | WHERE echecs > 3 | KEEP echecs\",\n  \"_complement_etat_du_pod\": {\n    \"_but\": \"Savoir si le pod de base existe encore : distingue « base arrêtée » de « base injoignable alors qu'elle tourne » — deux diagnostics très différents.\",\n    \"esql\": \"FROM metrics-kubernetes.state_pod-{{NAMESPACE}} | WHERE @timestamp > NOW() - 5 minutes | WHERE kubernetes.pod.name LIKE \\\"shopflow-db*\\\" | STATS mesures = COUNT(*), prets = SUM(CASE(kubernetes.pod.status.ready == true, 1, 0)) | EVAL etat = CASE(mesures == 0, \\\"aucune mesure\\\", prets == 0, \\\"pod non pret\\\", \\\"pod pret\\\") | KEEP mesures, prets, etat\"\n  },\n  \"_piege_a_connaitre\": \"Pendant une panne de base, la LATENCE du frontal BAISSE : un échec rapide est plus rapide qu'un succès. Une alerte construite sur la seule latence ne verrait donc rien. C'est la démonstration qu'il faut un SLO de disponibilité ET un SLO de latence.\"\n}\n",
+   "lang": "json"
+  }
+ ]
+};
+
+/* ---------- utilitaires ---------- */
+const $  = (s, r) => (r || document).querySelector(s);
+const el = (t, a, txt) => { const n = document.createElement(t);
+  if (a) for (const k in a) n.setAttribute(k, a[k]);
+  if (txt != null) n.textContent = txt; return n; };
+const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+/* ---------- substitution des placeholders ---------- */
+/* Une valeur saisie peut contenir des guillemets (par exemple une clause
+   ES|QL). Injectée telle quelle dans un fichier JSON, elle casserait le
+   document : on échappe donc selon le format du fichier cible. */
+function echappeJson(v) {
+  return String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"')
+    .replace(/\n/g, "\\n").replace(/\r/g, "\\r").replace(/\t/g, "\\t");
+}
+function substitue(texte, vals, format) {
+  return String(texte).replace(/\{\{([A-Z0-9_]+)\}\}/g, (m, k) => {
+    if (!Object.prototype.hasOwnProperty.call(vals, k)) return m;
+    return format === "json" ? echappeJson(vals[k]) : vals[k];
+  });
+}
+/* Les valeurs dérivées peuvent dépendre les unes des autres : on résout par passes. */
+function resout(vals, derived) {
+  const out = Object.assign({}, vals);
+  for (let passe = 0; passe < 6; passe++) {
+    let change = false;
+    for (const k in derived) {
+      const v = substitue(derived[k], out);
+      if (out[k] !== v) { out[k] = v; change = true; }
+    }
+    if (!change) break;
+  }
+  return out;
+}
+
+/* ---------- coloration simple ---------- */
+const COMMENT = { bash:/^\s*#/, yaml:/^\s*#/, properties:/^\s*[#!]/, apache:/^\s*#/,
+                  sql:/^\s*(#|\/\/|--)/, java:/^\s*(\/\/|\*|\/\*)/, xml:null, json:null, text:null };
+const MOTS = {
+  bash:/\b(if|then|else|elif|fi|for|while|do|done|case|esac|in|function|return|local|export|set|echo|exit|sudo|curl|systemctl|kubectl|cd|sleep|source)\b/g,
+  yaml:/^(\s*(?:-\s+)?)([A-Za-z0-9_.\/-]+)(:)/gm,
+  apache:/^(\s*)(&lt;\/?[A-Za-z]+|[A-Z][A-Za-z]+)\b/gm,
+  sql:/\b(FROM|WHERE|EVAL|STATS|KEEP|SORT|LIMIT|BY|AND|OR|NOT|CASE|COUNT|SUM|ROUND|NOW|IS|NULL|LIKE|IN|DATE_TRUNC|PERCENTILE|DROP|RENAME)\b/g,
+  java:/\b(public|private|static|final|class|void|new|return|if|else|for|while|try|catch|throw|throws|import|package|int|long|String|boolean)\b/g
+};
+function colorise(code, lang) {
+  const cl = COMMENT[lang];
+  const lignes = esc(code).split("\n").map(l => {
+    if (cl && cl.test(l)) return '<span class="tc">' + l + "</span>";
+    let o = l;
+    o = o.replace(/("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/g, '<span class="ts">$1</span>');
+    if (lang === "json")  o = o.replace(/\b(true|false|null)\b/g, '<span class="tk">$1</span>');
+    if (lang === "xml")   o = o.replace(/(&lt;\/?[A-Za-z!?][\w:.-]*)/g, '<span class="tg">$1</span>');
+    if (lang === "yaml")  o = o.replace(MOTS.yaml, '$1<span class="tg">$2</span>$3');
+    if (lang === "apache")o = o.replace(MOTS.apache, '$1<span class="tg">$2</span>');
+    if (MOTS[lang] && lang !== "yaml" && lang !== "apache") o = o.replace(MOTS[lang], '<span class="tk">$1</span>');
+    o = o.replace(/(^|[\s:=(,[])(\d+(?:\.\d+)?)\b/g, '$1<span class="tn">$2</span>');
+    return o;
+  });
+  return lignes.join("\n");
+}
+
+/* ---------- copier / télécharger ---------- */
+function copier(texte, btn) {
+  const fini = ok => { const av = btn.textContent;
+    btn.textContent = ok ? "Copié ✓" : "Échec"; setTimeout(() => { btn.textContent = av; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(texte).then(() => fini(true), () => fini(secours(texte)));
+  } else { fini(secours(texte)); }
+}
+function secours(texte) {                       /* presse-papier indisponible (iframe, http) */
+  const ta = el("textarea"); ta.value = texte;
+  ta.setAttribute("style", "position:fixed;top:-1000px;left:0;opacity:0");
+  document.body.appendChild(ta); ta.select();
+  let ok = false; try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+  document.body.removeChild(ta); return ok;
+}
+function telecharger(nom, texte, btn) {
+  try {
+    const b = new Blob([texte], { type: "text/plain;charset=utf-8" });
+    const u = URL.createObjectURL(b);
+    const a = el("a", { href: u, download: nom });
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(u), 4000);
+  } catch (e) {
+    btn.textContent = "Bloqué — utilisez Copier";
+    setTimeout(() => { btn.textContent = "Télécharger"; }, 2600);
+  }
+}
+
+/* ---------- construction du formulaire ---------- */
+function champs() {
+  const hote = $("#t-fields");
+  PAYLOAD.fields.forEach(f => {
+    const box = el("div");
+    const lab = el("label", { for: "f-" + f.key }, f.label);
+    if (f.required) lab.appendChild(el("span", { class: "req" }, " *"));
+    box.appendChild(lab);
+    let inp;
+    if (f.type === "select") {
+      inp = el("select", { id: "f-" + f.key });
+      (f.options || []).forEach(o => inp.appendChild(el("option", { value: o }, o)));
+      if (f.default) inp.value = f.default;
+    } else {
+      inp = el("input", { id: "f-" + f.key, type: f.type === "password" ? "password" : "text",
+        value: f.default || "", placeholder: f.placeholder || "", autocomplete: "off",
+        spellcheck: "false" });
+    }
+    inp.dataset.key = f.key;
+    box.appendChild(inp);
+    if (f.help) box.appendChild(el("p", { class: "help" }, f.help));
+    box.appendChild(el("p", { class: "err", id: "e-" + f.key }));
+    hote.appendChild(box);
+  });
+}
+function constantes() {
+  const tb = $("#t-cst");
+  PAYLOAD.constants.forEach(c => {
+    const tr = el("tr");
+    tr.appendChild(el("th", null, c.label));
+    const td = el("td"); td.appendChild(el("code", null, c.value));
+    if (c.note) { td.appendChild(document.createElement("br"));
+      td.appendChild(el("span", { class: "help" }, c.note)); }
+    tr.appendChild(td); tb.appendChild(tr);
+  });
+}
+
+/* ---------- validation ---------- */
+function valide() {
+  let ok = true; const vals = {};
+  PAYLOAD.fields.forEach(f => {
+    const inp = $("#f-" + f.key), zone = $("#e-" + f.key);
+    const v = (inp.value || "").trim();
+    let msg = "";
+    if (f.required && !v) msg = "Champ obligatoire.";
+    else if (v && f.pattern && !new RegExp(f.pattern).test(v)) msg = f.error || "Format invalide.";
+    zone.textContent = msg;
+    inp.setAttribute("aria-invalid", msg ? "true" : "false");
+    if (msg) ok = false;
+    vals[f.key] = v;
+  });
+  return ok ? vals : null;
+}
+
+/* ---------- rendu ---------- */
+function bloc(titre, chemin, contenu, lang) {
+  const b = el("div", { class: "blk" });
+  const h = el("header");
+  const g = el("div");
+  g.appendChild(el("h3", null, titre));
+  if (chemin) g.appendChild(el("div", { class: "path" }, chemin));
+  h.appendChild(g);
+  const btns = el("div", { class: "btns" });
+  const bc = el("button", { type: "button", class: "sm" }, "Copier");
+  bc.addEventListener("click", () => copier(contenu, bc));
+  const bt = el("button", { type: "button", class: "sm" }, "Télécharger");
+  bt.addEventListener("click", () => telecharger(titre, contenu, bt));
+  btns.appendChild(bc); btns.appendChild(bt);
+  h.appendChild(btns); b.appendChild(h);
+  const pre = el("pre"); pre.innerHTML = colorise(contenu, lang || "text");
+  b.appendChild(pre); return b;
+}
+function genere() {
+  const brut = valide();
+  const msg = $("#t-msg");
+  if (!brut) { msg.className = "msg bad";
+    msg.textContent = "Corrigez les champs signalés avant de générer."; return; }
+  const vals = resout(Object.assign({}, PAYLOAD.fixed, brut), PAYLOAD.derived);
+
+  const recap = $("#t-recap"); recap.textContent = "";
+  recap.appendChild(el("strong", null, "Valeurs appliquées"));
+  const ul = el("div", { class: "rec" });
+  (PAYLOAD.recap || []).forEach(k => {
+    if (vals[k] != null && vals[k] !== "") ul.appendChild(el("div", null, k + " = " + vals[k]));
+  });
+  recap.appendChild(ul);
+
+  const zone = $("#t-blocks"); zone.textContent = "";
+  (PAYLOAD.commands || []).forEach(c =>
+    zone.appendChild(bloc(c.name, c.title || "",
+      substitue(c.content, vals, c.lang), c.lang)));
+  (PAYLOAD.files || []).forEach(f =>
+    zone.appendChild(bloc(f.name, substitue(f.path || "", vals),
+      substitue(f.content, vals, f.lang), f.lang)));
+
+  $("#t-out").classList.remove("hidden");
+  msg.className = "msg ok";
+  msg.textContent = (PAYLOAD.files || []).length + " fichier(s) et " +
+                    (PAYLOAD.commands || []).length + " bloc(s) de commandes générés.";
+  /* scrollIntoView n'existe pas dans tous les contextes d'intégration
+     (certaines iframes restreintes) : on ne tombe pas pour autant. */
+  const sortie = $("#t-out");
+  if (typeof sortie.scrollIntoView === "function") {
+    sortie.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
+/* ---------- démarrage ---------- */
+$("#t-titre").textContent = PAYLOAD.chapitre;
+document.title = PAYLOAD.chapitre;
+$("#t-intro").textContent = PAYLOAD.intro || "";
+constantes(); champs();
+$("#t-gen").addEventListener("click", genere);
+$("#t-reset").addEventListener("click", () => {
+  $("#t-form").reset();
+  PAYLOAD.fields.forEach(f => { $("#e-" + f.key).textContent = "";
+    $("#f-" + f.key).setAttribute("aria-invalid", "false"); });
+  $("#t-out").classList.add("hidden"); $("#t-msg").textContent = "";
+});
+$("#t-form").addEventListener("submit", e => { e.preventDefault(); genere(); });
+$("#t-form").addEventListener("keydown", e => {
+  if (e.key === "Enter" && e.target.tagName !== "TEXTAREA") { e.preventDefault(); genere(); }
+});
+</script>
+</body>
+</html>

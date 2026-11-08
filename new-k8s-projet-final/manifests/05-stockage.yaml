@@ -1,0 +1,138 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  05-stockage.yaml — de quoi donner un volume à la base ({{STUDENT_ID}})
+#
+#  POURQUOI CE FICHIER EXISTE : une installation kubeadm ne fournit AUCUNE
+#  StorageClass. Un cluster managé (EKS, GKE, OpenShift) en a toujours une
+#  par défaut, k3s embarque « local-path » — kubeadm, rien. Le PVC du
+#  StatefulSet resterait donc Pending indéfiniment, avec l'event
+#  « no persistent volumes available for this claim and no storage class
+#  is set », et la base ne démarrerait jamais.
+#
+#  Vérifiez d'abord — si votre cluster a déjà une StorageClass, N'APPLIQUEZ
+#  PAS ce fichier : renseignez simplement son nom dans STORAGE_CLASS.
+#      kubectl get storageclass
+#
+#  CE QU'ON FAIT ICI, et pourquoi c'est volontairement rudimentaire :
+#  un PersistentVolume STATIQUE, sur un répertoire du worker. Pas de
+#  provisionneur à déployer, aucune image à télécharger, rien à atteindre
+#  sur Internet. En échange, vous voyez la liaison PV <-> PVC que les
+#  clusters managés vous cachent — et c'est précisément ce qu'il faut avoir
+#  vu une fois pour savoir lire un PVC qui ne se lie pas.
+#
+#  CE QUE CE N'EST PAS : une solution de production. Les données vivent sur
+#  le disque d'UN nœud. Si le worker disparaît, elles disparaissent avec
+#  lui. En production on utilise un provisionneur dynamique adossé à un
+#  stockage réseau (Ceph, NFS, un CSI du cloud). Ne copiez pas ce fichier
+#  ailleurs que dans ce TP.
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: "{{STORAGE_CLASS}}"
+# « no-provisioner » = personne ne crée les volumes automatiquement : c'est
+# l'administrateur qui les déclare à l'avance. C'est le cas ici.
+provisioner: kubernetes.io/no-provisioner
+# WaitForFirstConsumer : ne pas lier le volume AVANT de savoir sur quel nœud
+# le pod sera placé. Sans cela, le scheduler pourrait lier un volume du
+# worker à un pod destiné au master, et le pod resterait bloqué.
+volumeBindingMode: WaitForFirstConsumer
+reclaimPolicy: Retain
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: "pv-{{STUDENT_ID}}-shopflow-db"
+  labels:
+    app.kubernetes.io/part-of: shopflow
+    efi.formation/student: "{{STUDENT_ID}}"
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes: ["ReadWriteOnce"]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: "{{STORAGE_CLASS}}"
+  # claimRef : ce volume est RÉSERVÉ au PVC du StatefulSet. Sur un cluster
+  # partagé entre 20 candidats, sans cette réservation, le PVC d'un autre
+  # candidat pourrait se lier à VOTRE volume — et il n'y aurait aucun
+  # message d'erreur, juste des données qui n'arrivent pas où on croit.
+  # Le nom du PVC est imposé par le StatefulSet : <volume>-<statefulset>-<ordinal>.
+  claimRef:
+    namespace: "{{NAMESPACE}}"
+    name: donnees-shopflow-db-0
+  local:
+    path: /srv/shopflow/{{STUDENT_ID}}/db
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values: ["{{WORKER_NAME}}"]
+---
+# Le répertoire doit exister sur le worker AVANT que la base démarre : un
+# volume « local » ne crée pas son propre répertoire, contrairement à un
+# hostPath. Ce Job le crée une fois, puis se termine.
+#
+# Équivalent manuel, si vous avez un accès SSH au worker :
+#   ssh {{WORKER_NAME}} 'sudo mkdir -p /srv/shopflow/{{STUDENT_ID}}/db && \
+#       sudo chown 999:999 /srv/shopflow/{{STUDENT_ID}}/db && \
+#       sudo chmod 700 /srv/shopflow/{{STUDENT_ID}}/db'
+#
+# 999:999 = l'utilisateur postgres dans l'image officielle. Un répertoire
+# appartenant à root ferait échouer initdb sur « could not create directory ».
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: preparer-volume-db
+  namespace: "{{NAMESPACE}}"
+  labels:
+    app.kubernetes.io/part-of: shopflow
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: preparer-volume-db
+    spec:
+      restartPolicy: OnFailure
+      # nodeSelector et non nodeName : si le nom du worker est faux, on veut
+      # un event FailedScheduling explicite — pas un pod Pending sans raison.
+      nodeSelector:
+        kubernetes.io/hostname: "{{WORKER_NAME}}"
+      containers:
+        - name: preparer
+          image: "{{DEMO_IMAGE}}"
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              # 999:999 = l'utilisateur postgres de l'image officielle.
+              # mkdir/chown/chmod plutot que « install -o » : busybox tenterait
+              # de resoudre 999 comme un NOM d'utilisateur et echouerait.
+              mkdir -p /hote/shopflow/{{STUDENT_ID}}/db
+              chown 999:999 /hote/shopflow/{{STUDENT_ID}}/db
+              chmod 700 /hote/shopflow/{{STUDENT_ID}}/db
+              echo "repertoire pret : /srv/shopflow/{{STUDENT_ID}}/db"
+              ls -ld /hote/shopflow/{{STUDENT_ID}}/db
+          securityContext:
+            # Écrire sur le système de fichiers du nœud demande root. C'est
+            # une opération d'administration, faite UNE fois, dans un Job
+            # qui se termine — pas un privilège permanent.
+            runAsUser: 0
+          volumeMounts:
+            - name: hote
+              mountPath: /hote
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+      volumes:
+        - name: hote
+          hostPath:
+            path: /srv
+            type: DirectoryOrCreate

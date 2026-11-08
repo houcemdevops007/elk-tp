@@ -30,7 +30,7 @@ flowchart TB
         KBN["elk-kibana0<br/>172.16.3.53:5601<br/>Discover, Lens, Fleet UI,<br/>Alerting, espaces"]
         FLT["elk-fleet0<br/>172.16.3.55:8220<br/>Fleet Server<br/>Stack Monitoring"]
         LGS["elk-logstash0<br/>172.16.3.54<br/>:5044 Beats mTLS<br/>:8443 HTTP"]
-        subgraph ESC["Cluster efi-elk-training 9.5.5"]
+        subgraph ESC["Cluster efi-elk-training 9.5.6"]
             ES0["elk-es0<br/>172.16.3.50<br/>master + data"]
             ES1["elk-es1<br/>172.16.3.51<br/>master + data"]
             ES2["elk-es2<br/>172.16.3.52<br/>master + data"]
@@ -41,7 +41,7 @@ flowchart TB
         APA["Apache HTTP Server<br/>access.log, error.log<br/>mod_status"]
         TOM["Tomcat + JVM<br/>catalina, access, app JSON<br/>JMX"]
         K3S["k3s<br/>namespace studentXX<br/>logs et metriques des pods"]
-        AGT["Elastic Agent 9.5.5<br/>politique efi-studentXX-apache"]
+        AGT["Elastic Agent 9.5.6<br/>politique efi-studentXX-apache"]
         DS["Elastic Agent DaemonSet<br/>efi-studentXX-k8s"]
     end
 

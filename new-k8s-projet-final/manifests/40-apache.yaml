@@ -1,0 +1,102 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  40-apache.yaml — premier tier : frontal Apache ({{STUDENT_ID}})
+#
+#  Le Service est de type NodePort pour que vous puissiez l'atteindre depuis
+#  votre VM. Sur un cluster réel, on passerait par un Ingress.
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: shopflow-web
+  namespace: "{{NAMESPACE}}"
+  labels:
+    app.kubernetes.io/name: shopflow-web
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: shopflow
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: shopflow-web
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      nodePort: {{NODE_PORT}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shopflow-web
+  namespace: "{{NAMESPACE}}"
+  labels:
+    app.kubernetes.io/name: shopflow-web
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: shopflow
+    app.kubernetes.io/version: "2.4.1"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: shopflow-web
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: shopflow-web
+        app.kubernetes.io/component: frontend
+        app.kubernetes.io/part-of: shopflow
+        app.kubernetes.io/version: "2.4.1"
+      annotations:
+        co.elastic.logs/enabled: "true"
+        # Le journal d'accès est déjà du JSON : on le décode.
+        co.elastic.logs/json.keys_under_root: "true"
+        co.elastic.logs/json.add_error_key: "true"
+        co.elastic.logs/json.overwrite_keys: "true"
+    spec:
+      containers:
+        - name: httpd
+          image: "httpd:{{HTTPD_IMAGE_TAG}}"
+          ports:
+            - name: http
+              containerPort: 8080
+          volumeMounts:
+            - name: conf
+              mountPath: /usr/local/apache2/conf/httpd.conf
+              subPath: httpd.conf
+              readOnly: true
+            - name: conf
+              mountPath: /usr/local/apache2/htdocs/health.json
+              subPath: health.json
+              readOnly: true
+            - name: conf
+              mountPath: /usr/local/apache2/htdocs/index.html
+              subPath: index.html
+              readOnly: true
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              # /health répond LOCALEMENT, sans traverser le backend : on
+              # peut ainsi distinguer « le frontal est vivant » de « la
+              # chaîne complète fonctionne ». Si la readiness du frontal
+              # dépendait du backend, une panne de base retirerait TOUT le
+              # frontal du Service, et vous n'auriez plus aucune réponse HTTP
+              # à observer — donc plus aucun signal.
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+      volumes:
+        - name: conf
+          configMap:
+            name: shopflow-apache

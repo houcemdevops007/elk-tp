@@ -1,0 +1,14 @@
+{
+  "_nom": "db-injoignable-{{STUDENT_ID}}",
+  "_niveau": "1 — impact utilisateur",
+  "_fenetre": "5 minutes",
+  "_intervalle": "1 minute",
+  "_condition": "plus de 3 échecs de connexion à la base",
+  "_pourquoi_mesurer_depuis_le_backend": "Ce qui compte n'est pas que PostgreSQL tourne, c'est que le backend arrive à s'y connecter. Réseau, DNS, pool de connexions, saturation : tout cela est dans le chemin. Une base « UP » mais injoignable est hors service, et une alerte posée sur le pod PostgreSQL ne le verrait pas.",
+  "esql": "FROM logs-kubernetes.container_logs-{{NAMESPACE}} | WHERE @timestamp > NOW() - 5 minutes | WHERE log.level == \"ERROR\" | WHERE message LIKE \"*base de donnees injoignable*\" OR message LIKE \"*commande refusee*\" | STATS echecs = COUNT(*) | WHERE echecs > 3 | KEEP echecs",
+  "_complement_etat_du_pod": {
+    "_but": "Savoir si le pod de base existe encore : distingue « base arrêtée » de « base injoignable alors qu'elle tourne » — deux diagnostics très différents.",
+    "esql": "FROM metrics-kubernetes.state_pod-{{NAMESPACE}} | WHERE @timestamp > NOW() - 5 minutes | WHERE kubernetes.pod.name LIKE \"shopflow-db*\" | STATS mesures = COUNT(*), prets = SUM(CASE(kubernetes.pod.status.ready == true, 1, 0)) | EVAL etat = CASE(mesures == 0, \"aucune mesure\", prets == 0, \"pod non pret\", \"pod pret\") | KEEP mesures, prets, etat"
+  },
+  "_piege_a_connaitre": "Pendant une panne de base, la LATENCE du frontal BAISSE : un échec rapide est plus rapide qu'un succès. Une alerte construite sur la seule latence ne verrait donc rien. C'est la démonstration qu'il faut un SLO de disponibilité ET un SLO de latence."
+}

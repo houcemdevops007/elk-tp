@@ -1,8 +1,4 @@
-# TP Elastic Observability — Apache, Tomcat, Kubernetes
-
-Supports de travaux pratiques et **tous les fichiers nécessaires aux TP** : configurations,
-manifestes Kubernetes, scripts de scénario, règles d'alerte, requêtes ES\|QL et générateurs
-de configuration.
+# Elastic Observability — version condensée, orientée pratique
 
 Support de TP pour la plateforme EFILearn. Condensé d'un manuel de 24 chapitres en **une introduction et cinq chapitres**, centrés sur ce que le candidat doit savoir **faire** : collecter les logs et les métriques d'Apache, de Tomcat et de Kubernetes, les lire, alerter, puis diagnostiquer une panne qu'on ne lui a pas annoncée.
 
@@ -24,9 +20,8 @@ Fil rouge : la boutique fictive **ShopFlow**, éditée par la société fictive 
 ## 2. Arborescence
 
 ```text
-tp-elk/                           (racine de ce dépôt)
+tuto-elk-condense/
 ├── README.md                     ce fichier
-├── LICENSE
 ├── page-principale.md            page d'accueil du tutoriel sur EFIlearn
 ├── 00-introduction.md            architecture + concepts + verification d'acces
 ├── 00-introduction.mermaid-1.svg diagramme d'architecture pre-rendu
@@ -130,7 +125,7 @@ python3 tools/build-generateurs.py
 python3 tools/build-generateurs.py 03-kubernetes
 ```
 
-Les valeurs fixes de la plateforme (IP, ports, version **9.5.5**, nom du cluster) sont centralisées dans `tools/plateforme.json` : **un seul endroit à modifier** si la plateforme change.
+Les valeurs fixes de la plateforme (IP, ports, version **9.5.6**, nom du cluster) sont centralisées dans `tools/plateforme.json` : **un seul endroit à modifier** si la plateforme change.
 
 ### Rendre les fichiers en ligne de commande
 
@@ -424,7 +419,7 @@ Le support signale par un commentaire `<!-- À VÉRIFIER -->` chaque point qui d
 
 | Point | Où | Pourquoi |
 |---|---|---|
-| Existence de l'artefact `elastic-agent-9.5.5-linux-x86_64.tar.gz` | ch. 1 | La version doit être relevée dans Kibana |
+| Existence de l'artefact `elastic-agent-9.5.6-linux-x86_64.tar.gz` | ch. 1 | La version doit être relevée dans Kibana |
 | Périmètre de l'intégration **Apache Tomcat**, et dépendance à Jolokia pour les métriques | ch. 2 | Voie de repli Custom Logs + Jolokia fournie |
 | Noms des options de l'intégration **Jolokia** (`jmx.mappings`) | ch. 2 | À comparer avec l'interface de Fleet |
 | Activation des **hints d'autodiscover** (`co.elastic.logs/*`) | ch. 3 et 4 | Réglage côté agent, opération formateur |
