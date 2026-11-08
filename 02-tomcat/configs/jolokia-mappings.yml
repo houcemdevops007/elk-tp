@@ -21,63 +21,32 @@
   hosts: ["http://127.0.0.1:{{JOLOKIA_PORT}}/jolokia"]
   period: 10s
   jmx.mappings:
-
-    # ── Mémoire : heap et hors tas ──────────────────────────────────────────
-    #  -Xmx ne borne QUE la heap. La mémoire réelle du processus vaut
-    #  heap + metaspace + code cache + piles de threads + buffers natifs,
-    #  soit couramment 30 à 50 % de plus. C'est l'explication de l'OOMKilled
-    #  du chapitre 3.
     - mbean: "java.lang:type=Memory"
       attributes:
         - { attr: "HeapMemoryUsage", field: "memory.heap" }
         - { attr: "NonHeapMemoryUsage", field: "memory.non_heap" }
-
-    # ── Ramasse-miettes : ce qui compte est le TEMPS, pas le nombre ─────────
-    #  500 minor GC par minute totalisant 300 ms, c'est sain.
-    #  3 full GC par minute totalisant 40 s, c'est une application à l'arrêt.
-    - mbean: "java.lang:type=GarbageCollector,name=*"
+    - mbean: "java.lang:name=*,type=GarbageCollector"
       attributes:
         - { attr: "CollectionCount", field: "gc.count" }
         - { attr: "CollectionTime", field: "gc.time_ms" }
-
-    # ── Threads de la JVM : une croissance monotone est une fuite ───────────
     - mbean: "java.lang:type=Threading"
       attributes:
         - { attr: "ThreadCount", field: "threads.count" }
         - { attr: "PeakThreadCount", field: "threads.peak" }
-        - { attr: "DaemonThreadCount", field: "threads.daemon" }
-
-    # ── CPU du processus ────────────────────────────────────────────────────
     - mbean: "java.lang:type=OperatingSystem"
       attributes:
         - { attr: "ProcessCpuLoad", field: "cpu.process_load" }
-        - { attr: "SystemLoadAverage", field: "cpu.system_load_avg" }
-
-    # ── Pool de threads du connecteur Tomcat ────────────────────────────────
-    #  currentThreadsBusy qui atteint maxThreads ET un CPU bas = les threads
-    #  ATTENDENT (base de données, verrou), ils ne travaillent pas.
-    #  Augmenter maxThreads aggraverait la situation.
-    - mbean: 'Catalina:type=ThreadPool,name="http-nio-{{TOMCAT_PORT}}"'
+    #  Jokers (name=*, context=*) : les noms exacts contiennent des guillemets
+    #  ou des « / » que l'intégration ne fait pas correspondre de façon fiable.
+    - mbean: "Catalina:name=*,type=ThreadPool"
       attributes:
         - { attr: "maxThreads", field: "tomcat.threads.max" }
-        - { attr: "currentThreadCount", field: "tomcat.threads.current" }
         - { attr: "currentThreadsBusy", field: "tomcat.threads.busy" }
         - { attr: "connectionCount", field: "tomcat.connections" }
-
-    # ── Compteurs globaux de requêtes du connecteur ─────────────────────────
-    - mbean: 'Catalina:type=GlobalRequestProcessor,name="http-nio-{{TOMCAT_PORT}}"'
+    - mbean: "Catalina:name=*,type=GlobalRequestProcessor"
       attributes:
         - { attr: "requestCount", field: "tomcat.requests.count" }
         - { attr: "errorCount", field: "tomcat.requests.errors" }
-        - { attr: "processingTime", field: "tomcat.requests.time_ms" }
-        - { attr: "maxTime", field: "tomcat.requests.max_time_ms" }
-
-    # ── Sessions HTTP de l'application ──────────────────────────────────────
-    #  Croissance sans fin = sessions non expirées, ou robots : cause
-    #  classique de fuite mémoire quand l'application stocke le panier
-    #  complet en session.
-    - mbean: 'Catalina:type=Manager,host=localhost,context=/{{APP_CONTEXT}}'
+    - mbean: "Catalina:context=*,host=localhost,type=Manager"
       attributes:
         - { attr: "activeSessions", field: "tomcat.sessions.active" }
-        - { attr: "sessionCounter", field: "tomcat.sessions.created" }
-        - { attr: "expiredSessions", field: "tomcat.sessions.expired" }
